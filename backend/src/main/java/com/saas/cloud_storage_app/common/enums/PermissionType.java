@@ -1,4 +1,8 @@
 package com.saas.cloud_storage_app.common.enums;
 
-public class PermissionType {
+public enum PermissionType {
+    VIEW,
+    EDIT,
+    DOWNLOAD,
+    DELETE
 }

@@ -1,4 +1,18 @@
 package com.saas.cloud_storage_app.common.enums;
 
-public class ActivityType {
+public enum ActivityType {
+    USER_REGISTERED,
+    USER_LOGIN,
+    WORKSPACE_CREATED,
+    WORKSPACE_UPDATED,
+    MEMBER_INVITED,
+    MEMBER_REMOVED,
+    FOLDER_CREATED,
+    FOLDER_DELETED,
+    FILE_UPLOADED,
+    FILE_DOWNLOADED,
+    FILE_DELETED,
+    FILE_SHARED,
+    SHARE_LINK_CREATED,
+    SHARE_LINK_REVOKED
 }
