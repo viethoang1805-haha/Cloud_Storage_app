@@ -1,0 +1,35 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/cloud_storage_db
+    username: admin
+    password: admin123
+    driver-class-name: org.postgresql.Driver
+
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      timeout: 2000ms
+
+  jpa:
+    show-sql: true
+
+# Cấu hình JWT
+app:
+  jwt:
+    secret: "404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970"
+    access-token-expiration: 900000        # 15 phút (ms)
+    refresh-token-expiration: 604800000    # 7 ngày (ms)
+
+# Cấu hình MinIO
+minio:
+  endpoint: http://localhost:9000
+  access-key: minioadmin
+  secret-key: minioadmin123
+  bucket-name: cloud-storage-bucket
+
+# Logging
+logging:
+  level:
+    com.saas.cloud_storage_app: DEBUG
+    org.springframework.security: DEBUG
