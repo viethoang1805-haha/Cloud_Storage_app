@@ -1,0 +1,20 @@
+# ==========================
+# Root
+# ==========================
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker volumes
+docker/postgres/data/
+docker/redis/data/
+docker/minio/data/
+
+# Environment
+.env
+.env.*
+
+# Temporary
+*.tmp
+*.bak
