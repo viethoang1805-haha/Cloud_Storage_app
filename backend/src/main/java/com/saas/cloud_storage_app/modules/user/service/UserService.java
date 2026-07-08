@@ -1,4 +1,26 @@
 package com.saas.cloud_storage_app.modules.user.service;
 
-public class UserService {
+import com.saas.cloud_storage_app.modules.user.dto.request.ChangePasswordRequest;
+import com.saas.cloud_storage_app.modules.user.dto.request.UpdateProfileRequest;
+import com.saas.cloud_storage_app.modules.user.dto.response.StorageResponse;
+import com.saas.cloud_storage_app.modules.user.dto.response.UserResponse;
+import com.saas.cloud_storage_app.modules.user.entity.User;
+import org.springframework.web.multipart.MultipartFile;
+
+public interface UserService {
+
+    UserResponse getMyProfile(String email);
+
+    UserResponse updateProfile(String email, UpdateProfileRequest request);
+
+    void changePassword(String email, ChangePasswordRequest request);
+
+    UserResponse uploadAvatar(String email, MultipartFile file);
+
+    StorageResponse getStorageInfo(String email);
+
+    // (1) Internal method — dùng cho các module khác (file, workspace...)
+    User getUserByEmail(String email);
+
+    User getUserById(java.util.UUID id);
 }
