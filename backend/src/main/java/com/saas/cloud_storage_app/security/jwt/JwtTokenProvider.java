@@ -1,6 +1,10 @@
 package com.saas.cloud_storage_app.security.jwt;
 
-import io.jsonwebtoken.*;
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.ExpiredJwtException;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.MalformedJwtException;
+import io.jsonwebtoken.UnsupportedJwtException;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import lombok.extern.slf4j.Slf4j;
@@ -18,7 +22,6 @@ import java.util.stream.Collectors;
 @Component
 public class JwtTokenProvider {
 
-    // đọc config từ application-dev.yml
     @Value("${app.jwt.secret}")
     private String jwtSecret;
 
@@ -28,15 +31,12 @@ public class JwtTokenProvider {
     @Value("${app.jwt.refresh-token-expiration}")
     private long refreshTokenExpiration;
 
-    //tạo SecretKey từ chuỗi secret trong config
     private SecretKey getSigningKey() {
         byte[] keyBytes = Decoders.BASE64.decode(jwtSecret);
         return Keys.hmacShaKeyFor(keyBytes);
     }
 
-    //tạo accesstoken
     public String generateAccessToken(UserDetails userDetails) {
-
         List<String> roles = userDetails.getAuthorities()
                 .stream()
                 .map(GrantedAuthority::getAuthority)
@@ -46,32 +46,24 @@ public class JwtTokenProvider {
                 .subject(userDetails.getUsername())
                 .claim("roles", roles)
                 .issuedAt(new Date())
-                .expiration(new Date(
-                        System.currentTimeMillis() + accessTokenExpiration
-                ))
+                .expiration(new Date(System.currentTimeMillis() + accessTokenExpiration))
                 .signWith(getSigningKey())
                 .compact();
     }
 
-    //tạo refresh token
     public String generateRefreshToken(UserDetails userDetails) {
-
         return Jwts.builder()
                 .subject(userDetails.getUsername())
                 .issuedAt(new Date())
-                .expiration(new Date(
-                        System.currentTimeMillis() + refreshTokenExpiration
-                ))
+                .expiration(new Date(System.currentTimeMillis() + refreshTokenExpiration))
                 .signWith(getSigningKey())
                 .compact();
     }
-
 
     public String getEmailFromToken(String token) {
         return parseClaims(token).getSubject();
     }
 
-    //kiểm tra token
     public boolean validateToken(String token) {
         try {
             parseClaims(token);
@@ -90,11 +82,12 @@ public class JwtTokenProvider {
         return false;
     }
 
+    // (1) Kiểu trả về là Claims — cần import io.jsonwebtoken.Claims
     private Claims parseClaims(String token) {
         return Jwts.parser()
-                .verifyWith(getSigningKey())  // xác thực chữ ký
+                .verifyWith(getSigningKey())
                 .build()
-                .parseSignedClaims(token)     // parse token
-                .getPayload();               // lấy phần payload
+                .parseSignedClaims(token)
+                .getPayload();
     }
 }

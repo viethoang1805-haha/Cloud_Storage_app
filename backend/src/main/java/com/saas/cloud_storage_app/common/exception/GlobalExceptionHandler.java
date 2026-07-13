@@ -20,17 +20,17 @@ import java.util.Map;
 
 public class GlobalExceptionHandler {
 
-    //bắt lỗi nghiệp do mình tự làm
-    @ExceptionHandler(Exception.class)
-    public ResponseEntity<ApiResponse<Void>> handleException(AppException e) {
+    // bắt lỗi nghiệp vụ
+    @ExceptionHandler(AppException.class)
+    public ResponseEntity<ApiResponse<Void>> handleAppException(AppException e) {
+
         ErrorCode errorCode = e.getErrorCode();
-        log.warn("AppException: {}",e.getMessage());
+        log.warn("AppException: {}", e.getMessage());
 
         return ResponseEntity
                 .status(errorCode.getHttpStatus())
-                .body(ApiResponse.error(errorCode.getCode(),e.getMessage()));
+                .body(ApiResponse.error(errorCode.getCode(), e.getMessage()));
     }
-
     //bắt lỗi valid trong dto
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiResponse<Map<String, String>>> handleValidationException(

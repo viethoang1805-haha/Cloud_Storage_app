@@ -124,10 +124,11 @@
 		</dependency>
 
 		<!-- Swagger / OpenAPI -->
+		<!-- Thêm cái này vào -->
 		<dependency>
 			<groupId>org.springdoc</groupId>
 			<artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
-			<version>${springdoc.version}</version>
+			<version>2.3.0</version>
 		</dependency>
 
 		<!-- Test -->
