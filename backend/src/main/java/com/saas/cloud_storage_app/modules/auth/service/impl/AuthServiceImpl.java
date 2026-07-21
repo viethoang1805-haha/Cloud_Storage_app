@@ -1,5 +1,6 @@
 package com.saas.cloud_storage_app.modules.auth.service.impl;
 
+import com.saas.cloud_storage_app.common.enums.WorkspaceRole;
 import com.saas.cloud_storage_app.common.exception.AppException;
 import com.saas.cloud_storage_app.common.exception.ErrorCode;
 import com.saas.cloud_storage_app.modules.auth.dto.request.LoginRequest;
@@ -10,10 +11,14 @@ import com.saas.cloud_storage_app.modules.auth.entity.RefreshToken;
 import com.saas.cloud_storage_app.modules.auth.mapper.AuthMapper;
 import com.saas.cloud_storage_app.modules.auth.repository.RefreshTokenRepository;
 import com.saas.cloud_storage_app.modules.auth.service.AuthService;
+import com.saas.cloud_storage_app.modules.member.entity.WorkspaceMember;
+import com.saas.cloud_storage_app.modules.member.repository.WorkspaceMemberRepository;
 import com.saas.cloud_storage_app.modules.user.entity.Role;
 import com.saas.cloud_storage_app.modules.user.entity.User;
 import com.saas.cloud_storage_app.modules.user.repository.RoleRepository;
 import com.saas.cloud_storage_app.modules.user.repository.UserRepository;
+import com.saas.cloud_storage_app.modules.workspace.entity.Workspace;
+import com.saas.cloud_storage_app.modules.workspace.repository.WorkspaceRepository;
 import com.saas.cloud_storage_app.security.jwt.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -37,6 +42,8 @@ public class AuthServiceImpl implements AuthService {
     private final RoleRepository roleRepository;
     private final RefreshTokenRepository refreshTokenRepository;
     private final PasswordEncoder passwordEncoder;
+    private final WorkspaceRepository workspaceRepository;
+    private final WorkspaceMemberRepository memberRepository;
     private final AuthenticationManager authenticationManager;
     private final JwtTokenProvider jwtTokenProvider;
     private final AuthMapper authMapper;
@@ -78,6 +85,24 @@ public class AuthServiceImpl implements AuthService {
 
         // (7) Bước 4: Lưu user vào DB
         User savedUser = userRepository.save(user);
+
+        Workspace personalWorkspace = Workspace.builder()
+                .name("My Workspace")
+                .description("Workspace cá nhân của " + savedUser.getFullName())
+                .owner(savedUser)
+                .isPersonal(true)
+                .build();
+        Workspace savedWorkspace = workspaceRepository.save(personalWorkspace);
+
+
+        // (2) Thêm owner vào bảng members
+        WorkspaceMember ownerMember = WorkspaceMember.builder()
+                .workspace(savedWorkspace)
+                .user(savedUser)
+                .role(WorkspaceRole.OWNER)
+                .build();
+
+        memberRepository.save(ownerMember);
         log.info("Đăng ký thành công cho email: {}", savedUser.getEmail());
 
         // (8) Bước 5: Tạo token và trả về
