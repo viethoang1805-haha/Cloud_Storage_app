@@ -18,4 +18,6 @@ public interface WorkspaceService {
     // Internal — dùng cho module khác (file, folder)
     Workspace findWorkspaceById(UUID workspaceId);
     void validateMemberAccess(String email, UUID workspaceId);
+
+    void validateAdminAccess(String email, UUID workspaceId);
 }

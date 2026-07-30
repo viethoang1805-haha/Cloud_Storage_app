@@ -223,4 +223,13 @@ public class WorkspaceServiceImpl implements WorkspaceService {
                         ErrorCode.WORKSPACE_ACCESS_DENIED
                 ));
     }
+    @Override
+    public void validateAdminAccess(String email, UUID workspaceId) {
+        User user = userService.getUserByEmail(email);
+        WorkspaceMember member = getMemberOrThrow(workspaceId, user.getId());
+
+        if (!member.isAdminOrAbove()) {
+            throw new AppException(ErrorCode.WORKSPACE_ACCESS_DENIED);
+        }
+    }
 }

@@ -7,6 +7,8 @@ import com.saas.cloud_storage_app.modules.user.dto.response.UserResponse;
 import com.saas.cloud_storage_app.modules.user.entity.User;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.UUID;
+
 public interface UserService {
 
     UserResponse getMyProfile(String email);
@@ -23,4 +25,7 @@ public interface UserService {
     User getUserByEmail(String email);
 
     User getUserById(java.util.UUID id);
+
+    void increaseStorageUsed(UUID userId, Long size);
+    void decreaseStorageUsed(UUID userId, Long size);
 }

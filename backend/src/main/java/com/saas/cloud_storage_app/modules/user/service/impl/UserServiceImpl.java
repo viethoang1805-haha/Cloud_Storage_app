@@ -198,4 +198,16 @@ public class UserServiceImpl implements UserService {
             );
         }
     }
+    @Override
+    @Transactional
+    public void increaseStorageUsed(UUID userId, Long size) {
+        // (1) Dùng query UPDATE trực tiếp — an toàn với concurrent upload
+        userRepository.increaseStorageUsed(userId, size);
+    }
+
+    @Override
+    @Transactional
+    public void decreaseStorageUsed(UUID userId, Long size) {
+        userRepository.decreaseStorageUsed(userId, size);
+    }
 }
