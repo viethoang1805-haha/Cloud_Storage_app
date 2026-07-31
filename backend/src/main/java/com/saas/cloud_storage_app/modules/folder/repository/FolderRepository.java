@@ -69,4 +69,15 @@ public interface FolderRepository extends JpaRepository<Folder, UUID> {
             UUID folderId,
             UUID workspaceId
     );
+
+    // (1) Đếm folder trong workspace
+    long countByWorkspaceIdAndIsDeletedFalse(UUID workspaceId);
+
+    // (2) Đếm tổng folder của user
+    @Query("""
+    SELECT COUNT(f) FROM Folder f
+    WHERE f.createdByUser.id = :userId
+    AND f.isDeleted = false
+""")
+    long countByCreatedByUserIdAndNotDeleted(@Param("userId") UUID userId);
 }

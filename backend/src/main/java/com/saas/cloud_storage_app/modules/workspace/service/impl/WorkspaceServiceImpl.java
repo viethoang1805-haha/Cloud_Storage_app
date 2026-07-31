@@ -16,6 +16,7 @@ import com.saas.cloud_storage_app.modules.workspace.repository.WorkspaceReposito
 import com.saas.cloud_storage_app.modules.workspace.service.WorkspaceService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,6 +33,7 @@ public class WorkspaceServiceImpl implements WorkspaceService {
     private final UserService userService;
     private final WorkspaceMapper workspaceMapper;
 
+    private final ApplicationEventPublisher eventPublisher;
     // TẠO WORKSPACE
 
     @Override
@@ -232,4 +234,6 @@ public class WorkspaceServiceImpl implements WorkspaceService {
             throw new AppException(ErrorCode.WORKSPACE_ACCESS_DENIED);
         }
     }
+
+
 }

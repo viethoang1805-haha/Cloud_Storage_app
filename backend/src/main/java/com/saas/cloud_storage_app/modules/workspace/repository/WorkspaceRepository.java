@@ -31,4 +31,17 @@ public interface WorkspaceRepository extends JpaRepository<Workspace, UUID> {
 
     // (5) Kiểm tra user có phải owner không — dùng trước khi xóa
     boolean existsByIdAndOwnerId(UUID workspaceId, UUID ownerId);
+    // (1) Đếm tổng workspace
+    long count();
+
+    // (2) Top workspace theo số file
+    @Query("""
+    SELECT w.id, w.name, COUNT(f), SUM(f.size)
+    FROM Workspace w
+    LEFT JOIN FileEntity f ON f.workspace.id = w.id
+    AND f.isDeleted = false
+    GROUP BY w.id, w.name
+    ORDER BY SUM(f.size) DESC NULLS LAST
+""")
+    List<Object[]> findTopWorkspacesByStorage(Pageable pageable);
 }

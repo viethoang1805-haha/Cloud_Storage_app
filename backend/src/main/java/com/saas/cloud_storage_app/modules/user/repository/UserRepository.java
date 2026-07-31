@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -27,4 +28,13 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     @Modifying
     @Query("UPDATE User u SET u.storageUsed = GREATEST(0, u.storageUsed - :size) WHERE u.id = :userId")
     void decreaseStorageUsed(@Param("userId") UUID userId, @Param("size") Long size);
+    // (1) Đếm user mới trong N ngày
+    @Query("""
+    SELECT COUNT(u) FROM User u
+    WHERE u.createdAt >= :fromDate
+""")
+    long countUsersCreatedAfter(@Param("fromDate") LocalDateTime fromDate);
+
+    // (2) Tổng số user
+    long count();
 }

@@ -14,12 +14,14 @@ import com.saas.cloud_storage_app.modules.file.service.FileService;
 import com.saas.cloud_storage_app.modules.file.service.MinioStorageService;
 import com.saas.cloud_storage_app.modules.folder.entity.Folder;
 import com.saas.cloud_storage_app.modules.folder.service.FolderService;
+import com.saas.cloud_storage_app.modules.member.repository.WorkspaceMemberRepository;
 import com.saas.cloud_storage_app.modules.user.entity.User;
 import com.saas.cloud_storage_app.modules.user.service.UserService;
 import com.saas.cloud_storage_app.modules.workspace.entity.Workspace;
 import com.saas.cloud_storage_app.modules.workspace.service.WorkspaceService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -44,6 +46,10 @@ public class FileServiceImpl implements FileService {
     private final UserService userService;
     private final FolderService folderService;
     private final FileMapper fileMapper;
+
+    private final ApplicationEventPublisher eventPublisher;  // (1) inject publisher
+    private final WorkspaceMemberRepository memberRepository; // để lấy danh sách member
+
 
     // (1) Các loại file được phép upload
     private static final Set<String> ALLOWED_CONTENT_TYPES = Set.of(
@@ -434,4 +440,6 @@ public class FileServiceImpl implements FileService {
 
         return Sort.by(direction, field);
     }
+
+
 }

@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -73,4 +74,64 @@ public interface FileRepository extends JpaRepository<FileEntity, UUID> {
     boolean existsByIdAndWorkspaceIdAndIsDeletedFalse(
             UUID fileId, UUID workspaceId
     );
+
+    // (1) Đếm tổng file của user trong tất cả workspace
+    @Query("""
+    SELECT COUNT(f) FROM FileEntity f
+    WHERE f.uploadedBy.id = :userId
+    AND f.isDeleted = false
+""")
+    long countByUploadedByIdAndNotDeleted(@Param("userId") UUID userId);
+
+    // (2) Đếm file trong workspace
+    long countByWorkspaceIdAndIsDeletedFalse(UUID workspaceId);
+
+    // (3) File gần đây nhất của user — dùng cho personal dashboard
+    @Query("""
+    SELECT f FROM FileEntity f
+    WHERE f.uploadedBy.id = :userId
+    AND f.isDeleted = false
+    ORDER BY f.createdAt DESC
+""")
+    List<FileEntity> findRecentByUploadedById(
+            @Param("userId") UUID userId,
+            Pageable pageable
+    );
+
+    // (4) Phân tích file theo content type trong workspace
+    @Query("""
+    SELECT f.contentType, COUNT(f), SUM(f.size)
+    FROM FileEntity f
+    WHERE f.workspace.id = :workspaceId
+    AND f.isDeleted = false
+    GROUP BY f.contentType
+""")
+    List<Object[]> getFileTypeStats(@Param("workspaceId") UUID workspaceId);
+
+    // (5) Top contributor trong workspace
+    @Query("""
+    SELECT f.uploadedBy.id,
+           f.uploadedBy.fullName,
+           f.uploadedBy.avatarUrl,
+           COUNT(f),
+           SUM(f.size)
+    FROM FileEntity f
+    WHERE f.workspace.id = :workspaceId
+    AND f.isDeleted = false
+    AND f.uploadedBy IS NOT NULL
+    GROUP BY f.uploadedBy.id, f.uploadedBy.fullName, f.uploadedBy.avatarUrl
+    ORDER BY COUNT(f) DESC
+""")
+    List<Object[]> getTopContributors(
+            @Param("workspaceId") UUID workspaceId,
+            Pageable pageable
+    );
+
+    // (6) Đếm file mới trong N ngày qua — toàn hệ thống
+    @Query("""
+    SELECT COUNT(f) FROM FileEntity f
+    WHERE f.isDeleted = false
+    AND f.createdAt >= :fromDate
+""")
+    long countFilesCreatedAfter(@Param("fromDate") LocalDateTime fromDate);
 }
