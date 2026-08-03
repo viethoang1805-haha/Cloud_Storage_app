@@ -27,7 +27,7 @@ public class ShareLink extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by_id", nullable = false)
-    private User createdBy;
+    private User created;
 
     // (2) Password hash — null nếu không đặt password
     @Column(name = "password", length = 255)

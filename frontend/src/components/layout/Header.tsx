@@ -1,50 +1,54 @@
 import { Bell } from 'lucide-react'
-import { useAuthStore } from '@/store/auth.store'
-import { useQuery } from '@tanstack/react-query'
-import axiosInstance from '@/api/axios'
-import { ApiResponse } from '@/types/common'
+import { useUnreadCount } from '@/hooks/useNotification'
+import { useState } from 'react'
+import NotificationPanel from '@/components/notification/NotificationPanel'
 
 export default function Header() {
-    const user = useAuthStore((state) => state.user)
+  const { data: unreadCount = 0 } = useUnreadCount()
+  const [showNotif, setShowNotif] = useState(false)
 
-    // (1) Lấy số thông báo chưa đọc
-    const { data: unreadCount } = useQuery({
-        queryKey: ['notifications', 'unread-count'],
-        queryFn: async () => {
-            const response = await axiosInstance.get<ApiResponse<number>>(
-                '/notifications/unread-count'
-            )
-            return response.data.data
-        },
-        // (2) Refetch mỗi 60 giây
-        refetchInterval: 60 * 1000,
-    })
+  return (
+    <header className="h-16 bg-white border-b border-gray-100
+                       px-6 flex items-center justify-between
+                       flex-shrink-0">
 
-    return (
-        <header className="bg-white border-b border-gray-200 px-6 py-4
-                       flex items-center justify-between">
+      <div />
 
-            {/* Breadcrumb hoặc page title — sẽ thêm sau */}
-            <div />
+      <div className="flex items-center gap-2">
+        {/* Notification bell */}
+        <div className="relative">
+          <button
+            onClick={() => setShowNotif(!showNotif)}
+            className="relative h-9 w-9 flex items-center justify-center
+                       rounded-xl text-gray-500
+                       hover:bg-gray-100 hover:text-gray-700
+                       transition-all duration-150"
+          >
+            <Bell className="h-4 w-4" />
+            {unreadCount > 0 && (
+              <span className="absolute top-1.5 right-1.5 h-2 w-2
+                               bg-red-500 rounded-full" />
+            )}
+          </button>
 
-            {/* Right side: notifications + user */}
-            <div className="flex items-center gap-4">
-
-                {/* Notification bell */}
-                <button className="relative p-2 rounded-lg hover:bg-gray-100
-                           transition-colors">
-                    <Bell className="h-5 w-5 text-gray-600" />
-                    {/* (3) Badge số chưa đọc */}
-                    {unreadCount && unreadCount > 0 && (
-                        <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full
-                             bg-red-500 text-white text-xs flex items-center
-                             justify-center font-medium">
-              {unreadCount > 99 ? '99+' : unreadCount}
-            </span>
-                    )}
-                </button>
-
-            </div>
-        </header>
-    )
+          {/* Notification dropdown */}
+          {showNotif && (
+            <>
+              <div
+                className="fixed inset-0 z-10"
+                onClick={() => setShowNotif(false)}
+              />
+              <div className="absolute right-0 top-11 z-20
+                              w-80 bg-white rounded-2xl shadow-xl
+                              border border-gray-100 overflow-hidden">
+                <NotificationPanel
+                  onClose={() => setShowNotif(false)}
+                />
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </header>
+  )
 }

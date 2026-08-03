@@ -1,5 +1,4 @@
 import { Client, IMessage } from '@stomp/stompjs'
-import SockJS from 'sockjs-client'
 import { tokenService } from './token.service'
 import { Notification } from '@/types/notification'
 

@@ -16,7 +16,6 @@ import com.saas.cloud_storage_app.modules.workspace.repository.WorkspaceReposito
 import com.saas.cloud_storage_app.modules.workspace.service.WorkspaceService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -33,16 +32,14 @@ public class WorkspaceServiceImpl implements WorkspaceService {
     private final UserService userService;
     private final WorkspaceMapper workspaceMapper;
 
-    private final ApplicationEventPublisher eventPublisher;
+    // =============================================
     // TẠO WORKSPACE
-
+    // =============================================
     @Override
     @Transactional
-    public WorkspaceResponse createWorkspace(
-            String email,
-            WorkspaceCreateRequest request) {
-
+    public WorkspaceResponse createWorkspace(String email, WorkspaceCreateRequest request) {
         User owner = userService.getUserByEmail(email);
+
         Workspace workspace = Workspace.builder()
                 .name(request.getName().trim())
                 .description(request.getDescription())
@@ -52,99 +49,73 @@ public class WorkspaceServiceImpl implements WorkspaceService {
 
         Workspace saved = workspaceRepository.save(workspace);
 
-        //Tự động thêm owner vào bảng members với role OWNER
-        // Lý do: mọi query tìm workspace của user đều qua bảng members
-        // Nếu không add owner vào members → owner không thấy workspace của mình
         WorkspaceMember ownerMember = WorkspaceMember.builder()
                 .workspace(saved)
                 .user(owner)
                 .role(WorkspaceRole.OWNER)
-                .invitedBy(null) // owner không bị mời
+                .invitedBy(null)
                 .build();
 
         memberRepository.save(ownerMember);
-
         log.info("Tạo workspace '{}' bởi: {}", saved.getName(), email);
 
-        return workspaceMapper.toWorkspaceResponse(
-                saved,
-                WorkspaceRole.OWNER.name(),
-                1L // ban đầu chỉ có owner
-        );
+        return workspaceMapper.toWorkspaceResponse(saved, WorkspaceRole.OWNER.name(), 1L);
     }
 
-
+    // =============================================
     // DANH SÁCH WORKSPACE CỦA TÔI
-
+    // =============================================
     @Override
     @Transactional(readOnly = true)
     public List<WorkspaceResponse> getMyWorkspaces(String email) {
         User user = userService.getUserByEmail(email);
 
-        //  Tìm tất cả workspace user là member (kể cả workspace người khác mời vào)
-        List<Workspace> workspaces = workspaceRepository
-                .findAllByMemberId(user.getId());
+        List<Workspace> workspaces = workspaceRepository.findAllByMemberId(user.getId());
 
         return workspaces.stream()
                 .map(workspace -> {
-                    //  Với mỗi workspace, lấy role của user trong đó
                     WorkspaceMember member = memberRepository
-                            .findByWorkspaceIdAndUserId(
-                                    workspace.getId(),
-                                    user.getId()
-                            )
+                            .findByWorkspaceIdAndUserId(workspace.getId(), user.getId())
                             .orElseThrow();
 
-                    long memberCount = memberRepository
-                            .countByWorkspaceId(workspace.getId());
+                    long memberCount = memberRepository.countByWorkspaceId(workspace.getId());
 
                     return workspaceMapper.toWorkspaceResponse(
-                            workspace,
-                            member.getRole().name(),
-                            memberCount
-                    );
+                            workspace, member.getRole().name(), memberCount);
                 })
                 .toList();
     }
 
-
+    // =============================================
     // CHI TIẾT WORKSPACE
-
+    // =============================================
     @Override
     @Transactional(readOnly = true)
     public WorkspaceResponse getWorkspaceById(String email, UUID workspaceId) {
         User user = userService.getUserByEmail(email);
         Workspace workspace = findWorkspaceById(workspaceId);
 
-        //  Kiểm tra user có phải member không
         WorkspaceMember member = memberRepository
                 .findByWorkspaceIdAndUserId(workspaceId, user.getId())
-                .orElseThrow(() -> new AppException(
-                        ErrorCode.WORKSPACE_ACCESS_DENIED
-                ));
+                .orElseThrow(() -> new AppException(ErrorCode.WORKSPACE_ACCESS_DENIED));
 
         long memberCount = memberRepository.countByWorkspaceId(workspaceId);
 
         return workspaceMapper.toWorkspaceResponse(
-                workspace,
-                member.getRole().name(),
-                memberCount
-        );
+                workspace, member.getRole().name(), memberCount);
     }
 
+    // =============================================
     // CẬP NHẬT WORKSPACE
-
+    // =============================================
     @Override
     @Transactional
     public WorkspaceResponse updateWorkspace(
-            String email,
-            UUID workspaceId,
-            WorkspaceUpdateRequest request) {
+            String email, UUID workspaceId, WorkspaceUpdateRequest request) {
 
         User user = userService.getUserByEmail(email);
         Workspace workspace = findWorkspaceById(workspaceId);
 
-        //  Chỉ OWNER hoặc ADMIN mới được sửa
         WorkspaceMember member = getMemberOrThrow(workspaceId, user.getId());
         if (!member.isAdminOrAbove()) {
             throw new AppException(ErrorCode.WORKSPACE_ACCESS_DENIED);
@@ -155,38 +126,29 @@ public class WorkspaceServiceImpl implements WorkspaceService {
         Workspace saved = workspaceRepository.save(workspace);
 
         long memberCount = memberRepository.countByWorkspaceId(workspaceId);
-
         log.info("Cập nhật workspace '{}' bởi: {}", saved.getName(), email);
 
         return workspaceMapper.toWorkspaceResponse(
-                saved,
-                member.getRole().name(),
-                memberCount
-        );
+                saved, member.getRole().name(), memberCount);
     }
 
+    // =============================================
     // XÓA WORKSPACE
-
+    // =============================================
     @Override
     @Transactional
     public void deleteWorkspace(String email, UUID workspaceId) {
         User user = userService.getUserByEmail(email);
         Workspace workspace = findWorkspaceById(workspaceId);
 
-        //  Chỉ OWNER mới được xóa workspace
         if (!workspace.getOwner().getId().equals(user.getId())) {
             throw new AppException(ErrorCode.WORKSPACE_ACCESS_DENIED);
         }
 
-        //  Không cho xóa workspace cá nhân
         if (workspace.isPersonal()) {
-            throw new AppException(
-                    ErrorCode.VALIDATION_FAILED,
-                    "Không thể xóa workspace cá nhân"
-            );
+            throw new AppException(ErrorCode.VALIDATION_FAILED, "Không thể xóa workspace cá nhân");
         }
 
-        // Xóa workspace → ON DELETE CASCADE tự xóa members, folders, files
         workspaceRepository.delete(workspace);
         log.info("Xóa workspace '{}' bởi: {}", workspace.getName(), email);
     }
@@ -198,9 +160,7 @@ public class WorkspaceServiceImpl implements WorkspaceService {
     @Transactional(readOnly = true)
     public Workspace findWorkspaceById(UUID workspaceId) {
         return workspaceRepository.findById(workspaceId)
-                .orElseThrow(() -> new AppException(
-                        ErrorCode.WORKSPACE_NOT_FOUND
-                ));
+                .orElseThrow(() -> new AppException(ErrorCode.WORKSPACE_NOT_FOUND));
     }
 
     @Override
@@ -213,27 +173,21 @@ public class WorkspaceServiceImpl implements WorkspaceService {
         }
     }
 
-    // =============================================
-    // PRIVATE HELPERS
-    // =============================================
-
-    // (9) Tìm member hoặc throw exception — dùng nhiều chỗ
-    private WorkspaceMember getMemberOrThrow(UUID workspaceId, UUID userId) {
-        return memberRepository
-                .findByWorkspaceIdAndUserId(workspaceId, userId)
-                .orElseThrow(() -> new AppException(
-                        ErrorCode.WORKSPACE_ACCESS_DENIED
-                ));
-    }
     @Override
     public void validateAdminAccess(String email, UUID workspaceId) {
         User user = userService.getUserByEmail(email);
         WorkspaceMember member = getMemberOrThrow(workspaceId, user.getId());
-
         if (!member.isAdminOrAbove()) {
             throw new AppException(ErrorCode.WORKSPACE_ACCESS_DENIED);
         }
     }
 
-
+    // =============================================
+    // PRIVATE HELPERS
+    // =============================================
+    private WorkspaceMember getMemberOrThrow(UUID workspaceId, UUID userId) {
+        return memberRepository
+                .findByWorkspaceIdAndUserId(workspaceId, userId)
+                .orElseThrow(() -> new AppException(ErrorCode.WORKSPACE_ACCESS_DENIED));
+    }
 }

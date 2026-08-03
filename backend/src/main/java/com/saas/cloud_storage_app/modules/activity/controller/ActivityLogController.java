@@ -4,6 +4,7 @@ import com.saas.cloud_storage_app.common.response.ApiResponse;
 import com.saas.cloud_storage_app.modules.activity.dto.request.ActivityFilterRequest;
 import com.saas.cloud_storage_app.modules.activity.dto.response.ActivityLogPageResponse;
 import com.saas.cloud_storage_app.modules.activity.service.ActivityLogService;
+import com.saas.cloud_storage_app.modules.workspace.service.WorkspaceService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -25,8 +26,8 @@ import java.util.UUID;
 public class ActivityLogController {
 
     private final ActivityLogService activityLogService;
+    private final WorkspaceService workspaceService;
 
-    // (1) Log của workspace — tất cả member xem được
     @GetMapping("/api/v1/workspaces/{workspaceId}/activities")
     @Operation(summary = "Nhật ký hoạt động workspace")
     public ResponseEntity<ApiResponse<ActivityLogPageResponse>> getWorkspaceActivities(
@@ -35,15 +36,16 @@ public class ActivityLogController {
             @RequestParam(required = false) String action,
             @RequestParam(required = false) String targetType,
             @RequestParam(required = false)
-            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
-            LocalDateTime fromDate,
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fromDate,
             @RequestParam(required = false)
-            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
-            LocalDateTime toDate,
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime toDate,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size
     ) {
-        // (2) Build filter từ query params
+        // Validate member access tại controller
+        workspaceService.validateMemberAccess(
+                userDetails.getUsername(), workspaceId);
+
         ActivityFilterRequest filter = new ActivityFilterRequest();
         filter.setAction(action);
         filter.setTargetType(targetType);
@@ -52,17 +54,13 @@ public class ActivityLogController {
         filter.setPage(page);
         filter.setSize(size);
 
-        ActivityLogPageResponse response = activityLogService
-                .getWorkspaceActivities(
-                        userDetails.getUsername(), workspaceId, filter
-                );
-
-        return ResponseEntity.ok(ApiResponse.success(response));
+        return ResponseEntity.ok(ApiResponse.success(
+                activityLogService.getWorkspaceActivities(
+                        userDetails.getUsername(), workspaceId, filter)));
     }
 
-    // Log của tôi trong workspace
     @GetMapping("/api/v1/workspaces/{workspaceId}/activities/mine")
-    @Operation(summary = "Nhật ký hoạt động của tôi trong workspace")
+    @Operation(summary = "Nhật ký hoạt động của tôi")
     public ResponseEntity<ApiResponse<ActivityLogPageResponse>> getMyActivities(
             @AuthenticationPrincipal UserDetails userDetails,
             @PathVariable UUID workspaceId,
@@ -70,32 +68,29 @@ public class ActivityLogController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size
     ) {
+        workspaceService.validateMemberAccess(
+                userDetails.getUsername(), workspaceId);
+
         ActivityFilterRequest filter = new ActivityFilterRequest();
         filter.setAction(action);
         filter.setPage(page);
         filter.setSize(size);
 
-        ActivityLogPageResponse response = activityLogService
-                .getMyActivities(
-                        userDetails.getUsername(), workspaceId, filter
-                );
-
-        return ResponseEntity.ok(ApiResponse.success(response));
+        return ResponseEntity.ok(ApiResponse.success(
+                activityLogService.getMyActivities(
+                        userDetails.getUsername(), workspaceId, filter)));
     }
 
-    // (3) Admin only — xem toàn bộ log hệ thống
     @GetMapping("/api/v1/admin/activities")
     @Operation(summary = "Toàn bộ nhật ký hệ thống (Admin)")
-    @PreAuthorize("hasRole('ADMIN')")  // (4) Chỉ ADMIN mới vào được
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<ActivityLogPageResponse>> getAllActivities(
             @RequestParam(required = false) String action,
             @RequestParam(required = false) String targetType,
             @RequestParam(required = false)
-            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
-            LocalDateTime fromDate,
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fromDate,
             @RequestParam(required = false)
-            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
-            LocalDateTime toDate,
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime toDate,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "50") int size
     ) {
@@ -107,9 +102,7 @@ public class ActivityLogController {
         filter.setPage(page);
         filter.setSize(size);
 
-        ActivityLogPageResponse response = activityLogService
-                .getAllActivities(filter);
-
-        return ResponseEntity.ok(ApiResponse.success(response));
+        return ResponseEntity.ok(ApiResponse.success(
+                activityLogService.getAllActivities(filter)));
     }
 }

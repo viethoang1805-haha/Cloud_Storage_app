@@ -88,7 +88,7 @@ public class ShareServiceImpl implements ShareService {
         ShareLink shareLink = ShareLink.builder()
                 .file(file)
                 .token(token)
-                .createdBy(creator)
+                .created(creator)
                 .password(hashedPassword)
                 .expiresAt(request.getExpiresAt())
                 .maxDownloads(request.getMaxDownloads())
@@ -196,7 +196,7 @@ public class ShareServiceImpl implements ShareService {
                 .orElseThrow(() -> new AppException(ErrorCode.SHARE_LINK_NOT_FOUND));
 
         // (12) Chỉ người tạo link hoặc ADMIN/OWNER workspace mới tắt được
-        boolean isCreator = shareLink.getCreatedBy().getId().equals(user.getId());
+        boolean isCreator = shareLink.getCreated().getId().equals(user.getId());
         if (!isCreator) {
             workspaceService.validateAdminAccess(email, workspaceId);
         }

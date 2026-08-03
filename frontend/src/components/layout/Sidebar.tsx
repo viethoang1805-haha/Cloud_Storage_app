@@ -1,122 +1,116 @@
 import { NavLink, useNavigate } from 'react-router-dom'
 import {
-    LayoutDashboard,
-    FolderOpen,
-    Users,
-    Settings,
-    LogOut,
-    Cloud,
+  LayoutDashboard,
+  FolderOpen,
+  User,
+  LogOut,
+  Cloud,
 } from 'lucide-react'
 import { useAuthStore } from '@/store/auth.store'
-import toast from 'react-hot-toast'
+import Avatar from '@/components/common/Avatar'
 import { cn } from '@/lib/utils'
+import toast from 'react-hot-toast'
 
-// (1) Định nghĩa các nav items
 const navItems = [
-    {
-        label: 'Dashboard',
-        href: '/dashboard',
-        icon: LayoutDashboard,
-    },
-    {
-        label: 'Workspaces',
-        href: '/workspaces',
-        icon: FolderOpen,
-    },
-    {
-        label: 'Profile',
-        href: '/profile',
-        icon: Settings,
-    },
+  { to: '/dashboard',   label: 'Dashboard',   icon: LayoutDashboard },
+  { to: '/workspaces',  label: 'Workspaces',  icon: FolderOpen },
+  { to: '/profile',     label: 'Hồ sơ',      icon: User },
 ]
 
 export default function Sidebar() {
-    const { user, logout } = useAuthStore()
-    const navigate = useNavigate()
+  const { user, logout } = useAuthStore()
+  const navigate = useNavigate()
 
-    const handleLogout = async () => {
-        try {
-            await logout()
-            navigate('/login')
-            toast.success('Đăng xuất thành công')
-        } catch {
-            // Logout đã clear local state dù có lỗi
-            navigate('/login')
-        }
+  const handleLogout = async () => {
+    try {
+      await logout()
+      navigate('/login')
+      toast.success('Đã đăng xuất')
+    } catch {
+      navigate('/login')
     }
+  }
 
-    return (
-        <aside className="w-64 bg-white border-r border-gray-200 flex flex-col">
+  return (
+    <aside className="w-60 h-screen bg-white border-r border-gray-100
+                      flex flex-col flex-shrink-0">
 
-            {/* Logo */}
-            <div className="flex items-center gap-2 p-6 border-b border-gray-200">
-                <Cloud className="h-6 w-6 text-primary" />
-                <span className="font-bold text-gray-900">CloudStorage</span>
+      {/* Logo */}
+      <div className="h-16 flex items-center gap-2.5 px-5
+                      border-b border-gray-100">
+        <div className="h-8 w-8 bg-primary-600 rounded-xl
+                        flex items-center justify-center">
+          <Cloud className="h-4 w-4 text-white" />
+        </div>
+        <span className="font-bold text-gray-900 text-sm tracking-tight">
+          CloudStorage
+        </span>
+      </div>
+
+      {/* Navigation */}
+      <nav className="flex-1 px-3 py-4 overflow-y-auto">
+        <ul className="space-y-0.5">
+          {navItems.map(({ to, label, icon: Icon }) => (
+            <li key={to}>
+              <NavLink
+                to={to}
+                className={({ isActive }) =>
+                  cn(
+                    'flex items-center gap-3 px-3 py-2.5 rounded-xl',
+                    'text-sm font-medium transition-all duration-150',
+                    isActive
+                      ? 'bg-primary-50 text-primary-700'
+                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                  )
+                }
+              >
+                {({ isActive }) => (
+                  <>
+                    <Icon className={cn(
+                      'h-4 w-4 flex-shrink-0',
+                      isActive ? 'text-primary-600' : 'text-gray-400'
+                    )} />
+                    {label}
+                  </>
+                )}
+              </NavLink>
+            </li>
+          ))}
+        </ul>
+      </nav>
+
+      {/* User section */}
+      <div className="px-3 py-4 border-t border-gray-100">
+        {user && (
+          <div className="flex items-center gap-3 px-3 py-2.5 mb-1
+                          rounded-xl hover:bg-gray-50 transition-colors">
+            <Avatar
+              name={user.fullName}
+              avatarUrl={user.avatarUrl}
+              size="sm"
+            />
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-semibold text-gray-900 truncate">
+                {user.fullName}
+              </p>
+              <p className="text-xs text-gray-400 truncate">
+                {user.email}
+              </p>
             </div>
+          </div>
+        )}
 
-            {/* Navigation */}
-            <nav className="flex-1 p-4 space-y-1">
-                {navItems.map((item) => (
-                    <NavLink
-                        key={item.href}
-                        to={item.href}
-                        className={({ isActive }) =>
-                            cn(
-                                // (2) Base styles
-                                'flex items-center gap-3 px-3 py-2 rounded-lg',
-                                'text-sm font-medium transition-colors',
-                                // (3) Active vs inactive styles
-                                isActive
-                                    ? 'bg-primary text-white'
-                                    : 'text-gray-600 hover:bg-gray-100'
-                            )
-                        }
-                    >
-                        <item.icon className="h-4 w-4" />
-                        {item.label}
-                    </NavLink>
-                ))}
-            </nav>
-
-            {/* User info + Logout ở dưới cùng */}
-            <div className="p-4 border-t border-gray-200">
-
-                {/* Avatar + tên user */}
-                <div className="flex items-center gap-3 mb-3 px-3">
-                    <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center
-                          justify-center text-primary font-semibold text-sm">
-                        {/* (4) Hiển thị chữ cái đầu tên nếu không có avatar */}
-                        {user?.avatarUrl ? (
-                            <img
-                                src={user.avatarUrl}
-                                alt={user.fullName}
-                                className="h-8 w-8 rounded-full object-cover"
-                            />
-                        ) : (
-                            user?.fullName?.charAt(0).toUpperCase()
-                        )}
-                    </div>
-                    <div className="min-w-0">
-                        <p className="text-sm font-medium text-gray-900 truncate">
-                            {user?.fullName}
-                        </p>
-                        <p className="text-xs text-gray-500 truncate">
-                            {user?.email}
-                        </p>
-                    </div>
-                </div>
-
-                {/* Logout button */}
-                <button
-                    onClick={handleLogout}
-                    className="flex items-center gap-3 w-full px-3 py-2 rounded-lg
-                     text-sm font-medium text-red-600 hover:bg-red-50
-                     transition-colors"
-                >
-                    <LogOut className="h-4 w-4" />
-                    Đăng xuất
-                </button>
-            </div>
-        </aside>
-    )
+        <button
+          onClick={handleLogout}
+          className="w-full flex items-center gap-3 px-3 py-2.5
+                     rounded-xl text-sm font-medium text-gray-500
+                     hover:bg-red-50 hover:text-red-600
+                     transition-all duration-150"
+        >
+          <LogOut className="h-4 w-4" />
+          Đăng xuất
+        </button>
+      </div>
+    </aside>
+  )
 }

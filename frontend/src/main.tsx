@@ -1,3 +1,5 @@
+(globalThis as any).global = globalThis;
+
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { QueryClientProvider } from '@tanstack/react-query'
@@ -5,38 +7,43 @@ import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import { Toaster } from 'react-hot-toast'
 import App from './App'
 import { queryClient } from '@/lib/queryClient'
-import '@/index.css'
+
+// (1) Import CSS bằng đường dẫn tương đối — tránh lỗi TS2882
+import './index.css'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
     <React.StrictMode>
-        {/* (1) QueryClientProvider bao toàn bộ app */}
         <QueryClientProvider client={queryClient}>
 
             <App />
 
-            {/* (2) Toast notifications — đặt ở top level */}
             <Toaster
                 position="top-right"
+                gutter={8}
                 toastOptions={{
                     duration: 4000,
                     style: {
-                        background: 'hsl(var(--card))',
-                        color: 'hsl(var(--card-foreground))',
-                        border: '1px solid hsl(var(--border))',
+                        background: '#fff',
+                        color: '#111827',
+                        border: '1px solid #e5e7eb',
+                        borderRadius: '12px',
+                        padding: '12px 16px',
+                        fontSize: '14px',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
                     },
                     success: {
-                        iconTheme: {
-                            primary: 'hsl(var(--primary))',
-                            secondary: 'white',
-                        },
+                        iconTheme: { primary: '#2563eb', secondary: '#fff' },
+                    },
+                    error: {
+                        iconTheme: { primary: '#dc2626', secondary: '#fff' },
                     },
                 }}
             />
 
-            {/* (3) DevTools chỉ hiện khi development */}
             {import.meta.env.DEV && (
                 <ReactQueryDevtools initialIsOpen={false} />
             )}
+
         </QueryClientProvider>
     </React.StrictMode>
 )

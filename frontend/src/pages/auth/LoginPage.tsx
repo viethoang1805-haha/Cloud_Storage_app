@@ -4,127 +4,88 @@ import { z } from 'zod'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/auth.store'
 import toast from 'react-hot-toast'
-import { Loader2 } from 'lucide-react'
+import Button from '@/components/common/Button'
+import Input from '@/components/common/Input'
 
-// (1) Schema validation với Zod
-const loginSchema = z.object({
-    email: z
-        .string()
-        .min(1, 'Email không được để trống')
-        .email('Email không đúng định dạng'),
-    password: z
-        .string()
-        .min(1, 'Mật khẩu không được để trống'),
+const schema = z.object({
+  email: z.string().min(1, 'Vui lòng nhập email').email('Email không hợp lệ'),
+  password: z.string().min(1, 'Vui lòng nhập mật khẩu'),
 })
 
-type LoginForm = z.infer<typeof loginSchema>
+type Form = z.infer<typeof schema>
 
 export default function LoginPage() {
-    const { login, isLoading } = useAuthStore()
-    const navigate = useNavigate()
-    const location = useLocation()
+  const { login, isLoading } = useAuthStore()
+  const navigate = useNavigate()
+  const location = useLocation()
+  const from = (location.state as any)?.from?.pathname || '/dashboard'
 
-    // (2) Redirect về URL trước đó sau khi login
-    const from = (location.state as { from?: Location })?.from?.pathname
-        || '/dashboard'
+  const { register, handleSubmit, formState: { errors } } = useForm<Form>({
+    resolver: zodResolver(schema),
+  })
 
-    const {
-        register,
-        handleSubmit,
-        formState: { errors },
-    } = useForm<LoginForm>({
-        resolver: zodResolver(loginSchema),
-    })
-
-    const onSubmit = async (data: LoginForm) => {
-        try {
-            await login(data)
-            toast.success('Đăng nhập thành công!')
-            navigate(from, { replace: true })
-        } catch (error: any) {
-            // (3) Hiển thị lỗi từ API
-            const message = error?.response?.data?.message
-                || 'Email hoặc mật khẩu không đúng'
-            toast.error(message)
-        }
+  const onSubmit = async (data: Form) => {
+    try {
+      await login(data)
+      toast.success('Đăng nhập thành công!')
+      navigate(from, { replace: true })
+    } catch (error: any) {
+      const message = error?.response?.data?.message
+        || 'Email hoặc mật khẩu không đúng'
+      toast.error(message)
     }
+  }
 
-    return (
-        <div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">
-                Đăng nhập
-            </h1>
-            <p className="text-gray-500 mb-6">
-                Chưa có tài khoản?{' '}
-                <Link to="/register"
-                      className="text-primary hover:underline font-medium">
-                    Đăng ký ngay
-                </Link>
-            </p>
+  return (
+    <div>
+      <div className="mb-7">
+        <h1 className="text-2xl font-bold text-gray-900">
+          Chào mừng trở lại
+        </h1>
+        <p className="text-sm text-gray-500 mt-1.5">
+          Đăng nhập để tiếp tục
+        </p>
+      </div>
 
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <Input
+          label="Email"
+          type="email"
+          placeholder="you@example.com"
+          error={errors.email?.message}
+          {...register('email')}
+        />
 
-                {/* Email field */}
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Email
-                    </label>
-                    <input
-                        {...register('email')}
-                        type="email"
-                        placeholder="you@example.com"
-                        className={`w-full px-3 py-2 border rounded-lg text-sm
-                       focus:outline-none focus:ring-2 focus:ring-primary/30
-                       ${errors.email
-                            ? 'border-red-400 bg-red-50'
-                            : 'border-gray-300'}`}
-                    />
-                    {/* (4) Hiển thị lỗi validation */}
-                    {errors.email && (
-                        <p className="mt-1 text-xs text-red-500">
-                            {errors.email.message}
-                        </p>
-                    )}
-                </div>
+        <Input
+          label="Mật khẩu"
+          type="password"
+          placeholder="••••••••"
+          error={errors.password?.message}
+          {...register('password')}
+        />
 
-                {/* Password field */}
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Mật khẩu
-                    </label>
-                    <input
-                        {...register('password')}
-                        type="password"
-                        placeholder="••••••••"
-                        className={`w-full px-3 py-2 border rounded-lg text-sm
-                       focus:outline-none focus:ring-2 focus:ring-primary/30
-                       ${errors.password
-                            ? 'border-red-400 bg-red-50'
-                            : 'border-gray-300'}`}
-                    />
-                    {errors.password && (
-                        <p className="mt-1 text-xs text-red-500">
-                            {errors.password.message}
-                        </p>
-                    )}
-                </div>
+        <Button
+          type="submit"
+          variant="primary"
+          className="w-full mt-6"
+          isLoading={isLoading}
+        >
+          Đăng nhập
+        </Button>
+      </form>
 
-                {/* Submit button */}
-                <button
-                    type="submit"
-                    disabled={isLoading}
-                    className="w-full bg-primary text-white py-2 px-4 rounded-lg
-                     text-sm font-medium hover:bg-primary/90 transition-colors
-                     disabled:opacity-50 disabled:cursor-not-allowed
-                     flex items-center justify-center gap-2"
-                >
-                    {isLoading && (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                    )}
-                    {isLoading ? 'Đang đăng nhập...' : 'Đăng nhập'}
-                </button>
+      <div className="divider" />
 
-            </form>
-        </div>
-    )
+      <p className="text-center text-sm text-gray-500">
+        Chưa có tài khoản?{' '}
+        <Link
+          to="/register"
+          className="text-primary-600 font-medium hover:text-primary-700
+                     hover:underline transition-colors"
+        >
+          Đăng ký ngay
+        </Link>
+      </p>
+    </div>
+  )
 }

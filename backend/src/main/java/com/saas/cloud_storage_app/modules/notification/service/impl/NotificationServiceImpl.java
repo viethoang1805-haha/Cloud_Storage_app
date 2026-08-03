@@ -22,6 +22,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
@@ -43,27 +44,16 @@ public class NotificationServiceImpl implements NotificationService {
     @Override
     @Transactional(readOnly = true)
     public NotificationPageResponse getMyNotifications(
-            String email,
-            int page,
-            int size,
-            boolean unreadOnly) {
+            String email, int page, int size, boolean unreadOnly) {
 
         User user = userService.getUserByEmail(email);
         Pageable pageable = PageRequest.of(page, size);
 
-        Page<Notification> notifPage;
-
-        if (unreadOnly) {
-            notifPage = notificationRepository
-                    .findAllByUserIdAndIsReadFalseOrderByCreatedAtDesc(
-                            user.getId(), pageable
-                    );
-        } else {
-            notifPage = notificationRepository
-                    .findAllByUserIdOrderByCreatedAtDesc(
-                            user.getId(), pageable
-                    );
-        }
+        Page<Notification> notifPage = unreadOnly
+                ? notificationRepository.findAllByUserIdAndIsReadFalseOrderByCreatedAtDesc(
+                user.getId(), pageable)
+                : notificationRepository.findAllByUserIdOrderByCreatedAtDesc(
+                user.getId(), pageable);
 
         long unreadCount = notificationRepository
                 .countByUserIdAndIsReadFalse(user.getId());
@@ -91,7 +81,6 @@ public class NotificationServiceImpl implements NotificationService {
     public void markAsRead(String email, UUID notificationId) {
         User user = userService.getUserByEmail(email);
 
-        // (1) Validate: notification phải thuộc về user này
         Notification notification = notificationRepository.findById(notificationId)
                 .orElseThrow(() -> new AppException(ErrorCode.INTERNAL_SERVER_ERROR));
 
@@ -124,119 +113,105 @@ public class NotificationServiceImpl implements NotificationService {
     }
 
     // =============================================
-    // EVENT HANDLERS
+    // EVENT HANDLERS — chạy async, transaction riêng
     // =============================================
-
-    // (2) @Async — xử lý event trong thread riêng
-    // Không làm chậm FileService khi upload
     @Async
-    @EventListener  // (3) Spring tự gọi khi FileUploadedEvent được publish
-    @Transactional
+    @EventListener
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     @Override
     public void handleFileUploaded(FileUploadedEvent event) {
-        var file = event.getFile();
-        var uploader = event.getUploader();
-
         String title = "File mới được upload";
-        String message = String.format(
-                "%s đã upload file '%s'",
-                uploader.getFullName(),
-                file.getOriginalName()
-        );
+        String message = String.format("%s đã upload file '%s'",
+                event.getUploader().getFullName(),
+                event.getFile().getOriginalName());
 
-        // (4) Tạo notification cho từng recipient
         for (User recipient : event.getRecipients()) {
-            Notification notification = Notification.builder()
-                    .user(recipient)
-                    .title(title)
-                    .message(message)
-                    .type("FILE_UPLOADED")
-                    .refType("FILE")
-                    .refId(file.getId())
-                    .build();
-
-            Notification saved = notificationRepository.save(notification);
-
-            // (5) Push qua WebSocket
-            socketHandler.sendToUser(
-                    recipient.getId().toString(),
-                    notificationMapper.toResponse(saved)
-            );
+            try {
+                Notification saved = notificationRepository.save(
+                        Notification.builder()
+                                .user(recipient)
+                                .title(title)
+                                .message(message)
+                                .type("FILE_UPLOADED")
+                                .refType("FILE")
+                                .refId(event.getFile().getId())
+                                .build()
+                );
+                socketHandler.sendToUser(
+                        recipient.getId().toString(),
+                        notificationMapper.toResponse(saved));
+            } catch (Exception e) {
+                log.error("Lỗi gửi notification cho user {}: {}",
+                        recipient.getId(), e.getMessage());
+            }
         }
-
-        log.info("Gửi {} notification FILE_UPLOADED",
-                event.getRecipients().size());
+        log.info("Gửi {} notification FILE_UPLOADED", event.getRecipients().size());
     }
 
     @Async
     @EventListener
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     @Override
     public void handleMemberInvited(MemberInvitedEvent event) {
-        var workspace = event.getWorkspace();
-        var invitee = event.getInvitee();
-        var inviter = event.getInviter();
+        try {
+            String title = "Bạn được mời vào workspace";
+            String message = String.format("%s đã mời bạn vào workspace '%s'",
+                    event.getInviter().getFullName(),
+                    event.getWorkspace().getName());
 
-        String title = "Bạn được mời vào workspace";
-        String message = String.format(
-                "%s đã mời bạn vào workspace '%s'",
-                inviter.getFullName(),
-                workspace.getName()
-        );
+            Notification saved = notificationRepository.save(
+                    Notification.builder()
+                            .user(event.getInvitee())
+                            .title(title)
+                            .message(message)
+                            .type("MEMBER_INVITED")
+                            .refType("WORKSPACE")
+                            .refId(event.getWorkspace().getId())
+                            .build()
+            );
 
-        Notification notification = Notification.builder()
-                .user(invitee)
-                .title(title)
-                .message(message)
-                .type("MEMBER_INVITED")
-                .refType("WORKSPACE")
-                .refId(workspace.getId())
-                .build();
+            socketHandler.sendToUser(
+                    event.getInvitee().getId().toString(),
+                    notificationMapper.toResponse(saved));
 
-        Notification saved = notificationRepository.save(notification);
-
-        // Push WebSocket chỉ đến invitee
-        socketHandler.sendToUser(
-                invitee.getId().toString(),
-                notificationMapper.toResponse(saved)
-        );
-
-        log.info("Gửi notification MEMBER_INVITED đến: {}", invitee.getEmail());
+            log.info("Gửi notification MEMBER_INVITED đến: {}",
+                    event.getInvitee().getEmail());
+        } catch (Exception e) {
+            log.error("Lỗi gửi notification MEMBER_INVITED: {}", e.getMessage());
+        }
     }
 
     @Async
     @EventListener
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     @Override
     public void handleFileShared(FileSharedEvent event) {
-        var file = event.getFile();
-        var sharedWith = event.getSharedWith();
-        var sharedBy = event.getSharedBy();
+        try {
+            String title = "File được chia sẻ với bạn";
+            String message = String.format("%s đã chia sẻ file '%s' với bạn (quyền: %s)",
+                    event.getSharedBy().getFullName(),
+                    event.getFile().getOriginalName(),
+                    event.getPermission().name());
 
-        String title = "File được chia sẻ với bạn";
-        String message = String.format(
-                "%s đã chia sẻ file '%s' với bạn (quyền: %s)",
-                sharedBy.getFullName(),
-                file.getOriginalName(),
-                event.getPermission().name()
-        );
+            Notification saved = notificationRepository.save(
+                    Notification.builder()
+                            .user(event.getSharedWith())
+                            .title(title)
+                            .message(message)
+                            .type("FILE_SHARED")
+                            .refType("FILE")
+                            .refId(event.getFile().getId())
+                            .build()
+            );
 
-        Notification notification = Notification.builder()
-                .user(sharedWith)
-                .title(title)
-                .message(message)
-                .type("FILE_SHARED")
-                .refType("FILE")
-                .refId(file.getId())
-                .build();
+            socketHandler.sendToUser(
+                    event.getSharedWith().getId().toString(),
+                    notificationMapper.toResponse(saved));
 
-        Notification saved = notificationRepository.save(notification);
-
-        socketHandler.sendToUser(
-                sharedWith.getId().toString(),
-                notificationMapper.toResponse(saved)
-        );
-
-        log.info("Gửi notification FILE_SHARED đến: {}", sharedWith.getEmail());
+            log.info("Gửi notification FILE_SHARED đến: {}",
+                    event.getSharedWith().getEmail());
+        } catch (Exception e) {
+            log.error("Lỗi gửi notification FILE_SHARED: {}", e.getMessage());
+        }
     }
 }
