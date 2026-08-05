@@ -1,6 +1,6 @@
-import { Download, Trash2, FileText } from 'lucide-react'
+import { Download, Trash2 } from 'lucide-react'
 import { FileItem } from '@/types/file'
-import { formatFileSize, formatRelativeTime, getFileIcon } from '@/lib/utils'
+import { formatBytes, formatRelativeTime, getFileIcon } from '@/lib/utils'
 
 interface FileCardProps {
     file: FileItem
@@ -37,9 +37,7 @@ export default function FileCard({ file, onDownload, onDelete }: FileCardProps) 
                     {file.originalName}
                 </p>
                 <div className="flex items-center justify-between">
-          <span className="text-xs text-gray-400">
-            {formatFileSize(file.size)}
-          </span>
+                    <span>{formatBytes(file.size)}</span>
                     <span className="text-xs text-gray-400">
             {formatRelativeTime(file.createdAt)}
           </span>

@@ -39,13 +39,17 @@ public class SecurityConfig {
     private final AccessDeniedHandlerImpl accessDeniedHandler;
 
     //danh sách công khai
+// Trong SecurityConfig.java — cập nhật PUBLIC_URLS
     private static final String[] PUBLIC_URLS = {
-            "/api/v1/auth/**",          // đăng nhập, đăng ký, refresh token
-            "/api/v1/share/public/**",  // truy cập file qua link chia sẻ công khai
-            "/swagger-ui/**",           // Swagger UI
+            "/api/v1/auth/**",
+            "/api/v1/share/public/**",
+            "/swagger-ui/**",
             "/swagger-ui.html",
             "/api-docs/**",
-            "/v3/api-docs/**"
+            "/v3/api-docs/**",
+            "/actuator/health",
+            "/ws/**",           // (1) Cho phép WebSocket handshake
+            "/ws/info/**",      // (2) SockJS info endpoint
     };
 
     //cấu hình
@@ -78,6 +82,8 @@ public class SecurityConfig {
                         .anyRequest().authenticated()               // còn lại phải đăng nhập
                 )
 
+
+
                 // (1 Gắn authentication provider
                 .authenticationProvider(authenticationProvider())
 
@@ -88,6 +94,8 @@ public class SecurityConfig {
                         jwtAuthenticationFilter,
                         UsernamePasswordAuthenticationFilter.class
                 );
+
+
 
         return http.build();
     }

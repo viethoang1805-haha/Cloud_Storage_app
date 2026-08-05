@@ -181,6 +181,24 @@ public class FolderServiceImpl implements FolderService {
         return folderMapper.toFolderResponse(saved, childCount);
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public List<FolderResponse> getChildFolders(
+            String email, UUID workspaceId, UUID parentId) {
+        workspaceService.validateMemberAccess(email, workspaceId);
+
+        List<Folder> children = folderRepository
+                .findAllByParentIdAndIsDeletedFalse(parentId);
+
+        return children.stream()
+                .map(folder -> {
+                    long childCount = folderRepository
+                            .countByParentIdAndIsDeletedFalse(folder.getId());
+                    return folderMapper.toFolderResponse(folder, childCount);
+                })
+                .toList();
+    }
+
     // =============================================
     // DI CHUYỂN FOLDER
     // =============================================
@@ -329,6 +347,7 @@ public class FolderServiceImpl implements FolderService {
             }
             current = current.getParent();
         }
+
 
         return false;
         // (16) Chú ý: method này có thể gây N+1 query nếu parent LAZY

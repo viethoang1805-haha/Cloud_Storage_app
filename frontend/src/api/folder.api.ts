@@ -1,22 +1,8 @@
 import axiosInstance from './axios'
 import { ApiResponse } from '@/types/common'
-
-export interface FolderItem {
-    id: string
-    name: string
-    workspaceId: string
-    parent: { id: string; name: string } | null
-    childCount: number
-    createdAt: string
-}
-
-export interface FolderTree extends FolderItem {
-    depth: number
-    children: FolderTree[]
-}
+import { FolderItem, FolderTree, FolderCreateRequest, FolderRenameRequest } from '@/types/folder'
 
 export const folderApi = {
-
     getRootFolders: async (workspaceId: string): Promise<FolderItem[]> => {
         const res = await axiosInstance.get<ApiResponse<FolderItem[]>>(
             `/workspaces/${workspaceId}/folders`
@@ -24,10 +10,14 @@ export const folderApi = {
         return res.data.data
     },
 
-    getTree: async (
-        workspaceId: string,
-        folderId: string
-    ): Promise<FolderTree> => {
+    getById: async (workspaceId: string, folderId: string): Promise<FolderItem> => {
+        const res = await axiosInstance.get<ApiResponse<FolderItem>>(
+            `/workspaces/${workspaceId}/folders/${folderId}`
+        )
+        return res.data.data
+    },
+
+    getTree: async (workspaceId: string, folderId: string): Promise<FolderTree> => {
         const res = await axiosInstance.get<ApiResponse<FolderTree>>(
             `/workspaces/${workspaceId}/folders/${folderId}/tree`
         )
@@ -36,12 +26,11 @@ export const folderApi = {
 
     create: async (
         workspaceId: string,
-        name: string,
-        parentId?: string
+        data: FolderCreateRequest
     ): Promise<FolderItem> => {
         const res = await axiosInstance.post<ApiResponse<FolderItem>>(
             `/workspaces/${workspaceId}/folders`,
-            { name, parentId }
+            data
         )
         return res.data.data
     },
@@ -49,11 +38,23 @@ export const folderApi = {
     rename: async (
         workspaceId: string,
         folderId: string,
-        name: string
+        data: FolderRenameRequest
     ): Promise<FolderItem> => {
         const res = await axiosInstance.put<ApiResponse<FolderItem>>(
             `/workspaces/${workspaceId}/folders/${folderId}`,
-            { name }
+            data
+        )
+        return res.data.data
+    },
+
+    move: async (
+        workspaceId: string,
+        folderId: string,
+        targetParentId?: string
+    ): Promise<FolderItem> => {
+        const res = await axiosInstance.patch<ApiResponse<FolderItem>>(
+            `/workspaces/${workspaceId}/folders/${folderId}/move`,
+            { targetParentId }
         )
         return res.data.data
     },
@@ -63,4 +64,13 @@ export const folderApi = {
             `/workspaces/${workspaceId}/folders/${folderId}`
         )
     },
+    // Thêm method này vào folderApi object:
+    getChildren: async (workspaceId: string, parentId: string): Promise<FolderItem[]> => {
+        const res = await axiosInstance.get<ApiResponse<FolderItem[]>>(
+            `/workspaces/${workspaceId}/folders`,
+            { params: { parentId } }
+        )
+        return res.data.data
+    },
+
 }

@@ -1,4 +1,4 @@
-import { Download, Trash2 } from 'lucide-react'
+import { Download, Trash2, Share2 } from 'lucide-react'
 import { FileItem } from '@/types/file'
 import { formatBytes, formatRelativeTime, getFileIcon } from '@/lib/utils'
 
@@ -6,14 +6,19 @@ interface FileCardProps {
     file: FileItem
     onDownload: () => void
     onDelete: () => void
+    onShare?: () => void
 }
 
-export default function FileCard({ file, onDownload, onDelete }: FileCardProps) {
+export default function FileCard({
+                                     file,
+                                     onDownload,
+                                     onDelete,
+                                     onShare,
+                                 }: FileCardProps) {
     return (
         <div className="card group relative hover:shadow-md
                     transition-all duration-200 overflow-hidden">
-
-            {/* Thumbnail / Icon */}
+            {/* Thumbnail */}
             <div className="aspect-square bg-gray-50 flex items-center
                       justify-center border-b border-gray-100">
                 {file.isImage && file.downloadUrl ? (
@@ -47,10 +52,22 @@ export default function FileCard({ file, onDownload, onDelete }: FileCardProps) 
                 </div>
             </div>
 
-            {/* Hover actions */}
+            {/* Actions */}
             <div className="absolute top-2 right-2 flex gap-1
                       opacity-0 group-hover:opacity-100
                       transition-opacity duration-150">
+                {onShare && (
+                    <button
+                        onClick={(e) => { e.stopPropagation(); onShare() }}
+                        className="h-7 w-7 flex items-center justify-center
+                       bg-white rounded-lg shadow-sm border border-gray-200
+                       text-gray-500 hover:text-purple-600
+                       hover:border-purple-300 transition-colors"
+                        title="Chia sẻ"
+                    >
+                        <Share2 className="h-3.5 w-3.5" />
+                    </button>
+                )}
                 <button
                     onClick={(e) => { e.stopPropagation(); onDownload() }}
                     className="h-7 w-7 flex items-center justify-center

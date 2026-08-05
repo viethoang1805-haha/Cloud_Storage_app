@@ -50,12 +50,4 @@ public class DashboardController {
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
-    // (3) Dashboard hệ thống — admin only
-    @GetMapping("/api/v1/admin/dashboard")
-    @Operation(summary = "Tổng quan hệ thống (Admin)")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<ApiResponse<SystemDashboardResponse>> getSystemDashboard() {
-        SystemDashboardResponse response = dashboardService.getSystemDashboard();
-        return ResponseEntity.ok(ApiResponse.success(response));
-    }
 }

@@ -1,4 +1,3 @@
-// (1) Các type dùng cho Authentication
 export interface User {
     id: string
     email: string
@@ -11,7 +10,7 @@ export interface TokenResponse {
     accessToken: string
     refreshToken: string
     tokenType: string
-    expiresIn: number   // giây
+    expiresIn: number
     user: User
 }
 
@@ -24,8 +23,4 @@ export interface RegisterRequest {
     email: string
     password: string
     fullName: string
-}
-
-export interface RefreshTokenRequest {
-    refreshToken: string
 }

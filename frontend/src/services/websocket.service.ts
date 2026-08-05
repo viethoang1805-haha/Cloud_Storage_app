@@ -1,4 +1,5 @@
 import { Client, IMessage } from '@stomp/stompjs'
+import SockJS from 'sockjs-client'
 import { tokenService } from './token.service'
 import { Notification } from '@/types/notification'
 
@@ -8,72 +9,70 @@ class WebSocketService {
     private client: Client | null = null
     private handlers: NotificationHandler[] = []
 
-    // (1) Kết nối WebSocket
     connect(userId: string): void {
-        if (this.client?.active) return  // Đã kết nối rồi
+        // Disconnect cũ nếu có
+        if (this.client?.active) {
+            this.client.deactivate()
+        }
 
         const token = tokenService.getAccessToken()
         if (!token) return
 
         this.client = new Client({
-            webSocketFactory: () =>
-                new SockJS('http://localhost:8080/ws'),
+            // (1) Dùng factory function để SockJS tạo mới mỗi lần reconnect
+            webSocketFactory: () => {
+                return new SockJS('http://localhost:8080/ws')
+            },
 
+            // (2) Token trong STOMP CONNECT header
             connectHeaders: {
                 Authorization: `Bearer ${token}`,
             },
 
-            onConnect: () => {
-                console.log('✅ WebSocket connected')
+            onConnect: (frame) => {
+                console.log('✅ WebSocket connected', frame)
 
-                // (2) Subscribe nhận notification cá nhân
+                // (3) Subscribe channel riêng của user
                 this.client?.subscribe(
                     `/user/${userId}/queue/notifications`,
                     (message: IMessage) => {
                         try {
                             const notification: Notification = JSON.parse(message.body)
-                            // (3) Gọi tất cả handler đã đăng ký
-                            this.handlers.forEach((handler) => handler(notification))
-                        } catch (error) {
-                            console.error('Parse notification error:', error)
+                            this.handlers.forEach((h) => h(notification))
+                        } catch (e) {
+                            console.error('Parse notification error:', e)
                         }
                     }
                 )
             },
 
             onDisconnect: () => {
-                console.log('❌ WebSocket disconnected')
+                console.log('WebSocket disconnected')
             },
 
             onStompError: (frame) => {
-                console.error('STOMP error:', frame)
+                console.error('STOMP error:', frame.headers?.message)
             },
 
-            reconnectDelay: 5000,    // Retry sau 5 giây
-            heartbeatIncoming: 4000,
-            heartbeatOutgoing: 4000,
+            // (4) Không reconnect tự động nếu bị 401
+            reconnectDelay: 0,
         })
 
         this.client.activate()
     }
 
-    // (4) Ngắt kết nối
     disconnect(): void {
         this.client?.deactivate()
         this.client = null
         this.handlers = []
     }
 
-    // (5) Đăng ký handler nhận notification
     onNotification(handler: NotificationHandler): () => void {
         this.handlers.push(handler)
-
-        // (6) Trả về unsubscribe function
         return () => {
             this.handlers = this.handlers.filter((h) => h !== handler)
         }
     }
 }
 
-// (7) Singleton — chỉ 1 instance cho toàn app
 export const wsService = new WebSocketService()

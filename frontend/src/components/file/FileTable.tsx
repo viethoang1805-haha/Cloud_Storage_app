@@ -1,4 +1,4 @@
-import { Download, Trash2 } from 'lucide-react'
+import { Download, Trash2, Share2 } from 'lucide-react'
 import { FileItem } from '@/types/file'
 import { formatBytes, formatRelativeTime, getFileIcon } from '@/lib/utils'
 import Avatar from '@/components/common/Avatar'
@@ -7,9 +7,15 @@ interface FileTableProps {
     files: FileItem[]
     onDownload: (file: FileItem) => void
     onDelete: (file: FileItem) => void
+    onShare?: (file: FileItem) => void
 }
 
-export default function FileTable({ files, onDownload, onDelete }: FileTableProps) {
+export default function FileTable({
+                                      files,
+                                      onDownload,
+                                      onDelete,
+                                      onShare,
+                                  }: FileTableProps) {
     return (
         <div className="card overflow-hidden">
             <table className="w-full text-sm">
@@ -39,19 +45,14 @@ export default function FileTable({ files, onDownload, onDelete }: FileTableProp
                 </thead>
                 <tbody className="divide-y divide-gray-50">
                 {files.map((file) => (
-                    <tr
-                        key={file.id}
-                        className="hover:bg-gray-50 transition-colors"
-                    >
-                        {/* Tên */}
+                    <tr key={file.id} className="hover:bg-gray-50 transition-colors">
                         <td className="px-4 py-3">
                             <div className="flex items-center gap-3">
                   <span className="text-xl flex-shrink-0">
                     {getFileIcon(file.contentType)}
                   </span>
                                 <div className="min-w-0">
-                                    <p className="font-medium text-gray-900 truncate
-                                  max-w-[200px]">
+                                    <p className="font-medium text-gray-900 truncate max-w-[200px]">
                                         {file.originalName}
                                     </p>
                                     {file.folder && (
@@ -62,14 +63,10 @@ export default function FileTable({ files, onDownload, onDelete }: FileTableProp
                                 </div>
                             </div>
                         </td>
-
-                        {/* Size */}
-                        <td className="px-4 py-3 text-gray-500 text-xs
+                        <td className="px-4 py-3 text-xs text-gray-500
                              hidden md:table-cell whitespace-nowrap">
                             {formatBytes(file.size)}
                         </td>
-
-                        {/* Uploader */}
                         <td className="px-4 py-3 hidden lg:table-cell">
                             {file.uploadedBy ? (
                                 <div className="flex items-center gap-2">
@@ -78,8 +75,7 @@ export default function FileTable({ files, onDownload, onDelete }: FileTableProp
                                         avatarUrl={file.uploadedBy.avatarUrl}
                                         size="xs"
                                     />
-                                    <span className="text-xs text-gray-600 truncate
-                                     max-w-[120px]">
+                                    <span className="text-xs text-gray-600 truncate max-w-[120px]">
                       {file.uploadedBy.fullName}
                     </span>
                                 </div>
@@ -87,16 +83,23 @@ export default function FileTable({ files, onDownload, onDelete }: FileTableProp
                                 <span className="text-xs text-gray-400">—</span>
                             )}
                         </td>
-
-                        {/* Date */}
                         <td className="px-4 py-3 text-xs text-gray-400
                              hidden lg:table-cell whitespace-nowrap">
                             {formatRelativeTime(file.createdAt)}
                         </td>
-
-                        {/* Actions */}
                         <td className="px-4 py-3">
                             <div className="flex items-center gap-1 justify-end">
+                                {onShare && (
+                                    <button
+                                        onClick={() => onShare(file)}
+                                        className="h-7 w-7 flex items-center justify-center
+                                 rounded-lg text-gray-400 hover:text-purple-600
+                                 hover:bg-purple-50 transition-colors"
+                                        title="Chia sẻ"
+                                    >
+                                        <Share2 className="h-3.5 w-3.5" />
+                                    </button>
+                                )}
                                 <button
                                     onClick={() => onDownload(file)}
                                     className="h-7 w-7 flex items-center justify-center

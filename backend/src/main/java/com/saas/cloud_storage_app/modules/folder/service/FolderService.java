@@ -18,7 +18,7 @@ public interface FolderService {
     FolderResponse renameFolder(String email, UUID workspaceId, UUID folderId, FolderRenameRequest request);
     FolderResponse moveFolder(String email, UUID workspaceId, UUID folderId, FolderMoveRequest request);
     void deleteFolder(String email, UUID workspaceId, UUID folderId);
-
+    List<FolderResponse> getChildFolders(String email, UUID workspaceId, UUID parentId);
     // Internal
     Folder findFolderById(UUID folderId);
 }
