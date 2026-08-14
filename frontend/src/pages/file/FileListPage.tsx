@@ -100,6 +100,7 @@ export default function FileListPage() {
         [selectedFolderId]
     )
 
+
     const onCreateFolder = async (data: { name: string }) => {
         await createFolderMutation.mutateAsync({
             name: data.name,

@@ -1,45 +1,53 @@
-import { useEffect } from 'react'
+// src/hooks/useSocket.ts
+
+import { useEffect, useRef } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useAuthStore } from '@/store/auth.store'
 import { wsService } from '@/services/websocket.service'
 import { notifKeys } from './useNotification'
 import toast from 'react-hot-toast'
-import { Bell } from 'lucide-react'
 
-// (1) Hook kết nối WebSocket và sync với TanStack Query
 export function useWebSocket() {
     const user = useAuthStore((state) => state.user)
     const queryClient = useQueryClient()
+    const subscribedRef = useRef(false)
 
     useEffect(() => {
-        if (!user) return
+        // (1) Dùng email thay vì user.id
+        if (!user?.email) return
 
-        // Kết nối
-        wsService.connect(user.id)
+        wsService.connect(user.email)   // truyền email
 
-        // (2) Đăng ký handler — cập nhật cache khi có notification mới
-        const unsubscribe = wsService.onNotification((notification) => {
-            // Invalidate unread count → Header badge tự cập nhật
-            queryClient.invalidateQueries({
-                queryKey: notifKeys.unreadCount(),
+        if (!subscribedRef.current) {
+            subscribedRef.current = true
+
+            const unsubscribe = wsService.onNotification((notification) => {
+                // Cập nhật badge count
+                queryClient.invalidateQueries({
+                    queryKey: notifKeys.unreadCount(),
+                })
+                // Cập nhật list
+                queryClient.invalidateQueries({
+                    queryKey: notifKeys.all,
+                })
+                // Toast
+                toast(notification.title, {
+                    icon: '🔔',
+                    duration: 5000,
+                    style: {
+                        background: '#fff',
+                        border: '1px solid #e5e7eb',
+                        borderRadius: '12px',
+                        fontSize: '14px',
+                    },
+                })
             })
 
-            // Invalidate notification list
-            queryClient.invalidateQueries({
-                queryKey: notifKeys.all,
-            })
-
-            // (3) Hiển thị toast notification
-            toast(notification.title, {
-                icon: '🔔',
-                duration: 5000,
-            })
-        })
-
-        // (4) Cleanup khi unmount hoặc user thay đổi
-        return () => {
-            unsubscribe()
-            wsService.disconnect()
+            return () => {
+                subscribedRef.current = false
+                unsubscribe()
+                wsService.disconnect()
+            }
         }
-    }, [user, queryClient])
+    }, [user?.email])  // (2) depend on email
 }

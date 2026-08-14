@@ -3,6 +3,7 @@ package com.saas.cloud_storage_app.modules.user.controller;
 
 import com.saas.cloud_storage_app.common.response.ApiResponse;
 import com.saas.cloud_storage_app.modules.user.dto.request.ChangePasswordRequest;
+import com.saas.cloud_storage_app.modules.user.dto.request.UpdateProfileRequest;
 import com.saas.cloud_storage_app.modules.user.dto.response.StorageResponse;
 import com.saas.cloud_storage_app.modules.user.dto.response.UserResponse;
 import com.saas.cloud_storage_app.modules.user.service.UserService;
@@ -69,6 +70,17 @@ public class UserController {
         userService.changePassword(getEmail(userDetails),request);
         return ResponseEntity.ok(ApiResponse.success("Đổi mật khẩu thành công"));
 
+    }
+
+    @PutMapping("/me")
+    public ResponseEntity<ApiResponse<UserResponse>> updateProfile(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @Valid @RequestBody UpdateProfileRequest request
+    ) {
+        UserResponse response = userService.updateProfile(
+                getEmail(userDetails), request
+        );
+        return ResponseEntity.ok(ApiResponse.success(response, "Cập nhật thành công"));
     }
 
 

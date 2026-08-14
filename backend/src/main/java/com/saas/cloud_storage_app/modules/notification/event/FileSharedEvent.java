@@ -10,8 +10,8 @@ import org.springframework.context.ApplicationEvent;
 public class FileSharedEvent extends ApplicationEvent {
 
     private final FileEntity file;
-    private final User sharedWith;  // người được chia sẻ
-    private final User sharedBy;    // người chia sẻ
+    private final User sharedWith;   // người nhận
+    private final User sharedBy;     // người chia sẻ
     private final PermissionType permission;
 
     public FileSharedEvent(

@@ -56,6 +56,20 @@ public class FolderController {
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
+    @GetMapping("/{folderId}/children")
+    @Operation(summary = "Lấy danh sách folder con trực tiếp")
+    public ResponseEntity<ApiResponse<List<FolderResponse>>> getChildFolders(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable UUID workspaceId,
+            @PathVariable UUID folderId
+    ) {
+        List<FolderResponse> response = folderService.getChildFolders(
+                userDetails.getUsername(), workspaceId, folderId
+        );
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+
     @GetMapping("/{folderId}")
     @Operation(summary = "Chi tiết folder")
     public ResponseEntity<ApiResponse<FolderResponse>> getFolderById(

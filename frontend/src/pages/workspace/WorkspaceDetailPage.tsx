@@ -1,232 +1,290 @@
-// src/pages/file/FileListPage.tsx
-import { useState, useRef, useCallback } from 'react'
-import { useParams } from 'react-router-dom'
-import { Upload, Search, Grid, List, Loader2, Files } from 'lucide-react'
+import { useState } from 'react'
+import { useParams, useNavigate } from 'react-router-dom'
 import {
-    useRootFiles,
-    useUploadFile,
-    useDeleteFile,
-    useDownloadFile,
-} from '@/hooks/useFile'
-import { useWorkspace } from '@/hooks/useWorkspace'
+    Users, FolderOpen, ArrowLeft,
+    Settings, Trash2, BarChart2,
+    Edit2, Activity,
+} from 'lucide-react'
+import {
+    useWorkspace,
+    useUpdateWorkspace,
+    useDeleteWorkspace,
+} from '@/hooks/useWorkspace'
+import { useAuthStore } from '@/store/auth.store'
 import Loading from '@/components/common/Loading'
-import EmptyState from '@/components/common/EmptyState'
-import ConfirmDialog from '@/components/common/ConfirmDialog'
-import FileCard from '@/components/file/FileCard'
-import FileTable from '@/components/file/FileTable'
-import UploadDropzone from '@/components/file/UploadDropzone'
 import Button from '@/components/common/Button'
-import { FileItem } from '@/types/file'
+import Modal from '@/components/common/Modal'
+import Input from '@/components/common/Input'
+import ConfirmDialog from '@/components/common/ConfirmDialog'
+import Avatar from '@/components/common/Avatar'
+import { RoleBadge } from '@/components/common/Badge'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { z } from 'zod'
 import { cn } from '@/lib/utils'
 
-type ViewMode = 'grid' | 'list'
+const editSchema = z.object({
+    name: z.string().min(1, 'Tên không được để trống').max(255),
+    description: z.string().max(1000).optional(),
+})
+type EditForm = z.infer<typeof editSchema>
 
-export default function FileListPage() {
+export default function WorkspaceDetailPage() {
     const { workspaceId } = useParams<{ workspaceId: string }>()
-    const [viewMode, setViewMode] = useState<ViewMode>('grid')
-    const [search, setSearch] = useState('')
-    const [deleteTarget, setDeleteTarget] = useState<FileItem | null>(null)
-    const [isDragOver, setIsDragOver] = useState(false)
-    const fileInputRef = useRef<HTMLInputElement>(null)
+    const navigate = useNavigate()
+    const { user } = useAuthStore()
 
-    const { data: workspace } = useWorkspace(workspaceId!)
-    const {
-        data: filesData,
-        fetchNextPage,
-        hasNextPage,
-        isFetchingNextPage,
-        isLoading,
-    } = useRootFiles(workspaceId!)
+    const [showEdit, setShowEdit] = useState(false)
+    const [showDelete, setShowDelete] = useState(false)
 
-    const uploadMutation = useUploadFile(workspaceId!)
-    const deleteMutation = useDeleteFile(workspaceId!)
-    const downloadMutation = useDownloadFile(workspaceId!)
+    const { data: workspace, isLoading } = useWorkspace(workspaceId!)
+    const updateMutation = useUpdateWorkspace(workspaceId!)
+    const deleteMutation = useDeleteWorkspace()
 
-    const allFiles = filesData?.pages.flatMap((p) => p.files) ?? []
+    const { register, handleSubmit, reset, formState: { errors } } =
+        useForm<EditForm>({
+            resolver: zodResolver(editSchema),
+            values: {
+                name: workspace?.name ?? '',
+                description: workspace?.description ?? '',
+            },
+        })
 
-    const filteredFiles = search
-        ? allFiles.filter((f) =>
-            f.originalName.toLowerCase().includes(search.toLowerCase())
-        )
-        : allFiles
+    const isOwner = workspace?.myRole === 'OWNER'
+    const isAdmin = workspace?.myRole === 'ADMIN' || isOwner
 
-    const handleFiles = async (files: FileList) => {
-        for (const file of Array.from(files)) {
-            await uploadMutation.mutateAsync({ file })
-        }
+    const onEdit = async (data: EditForm) => {
+        await updateMutation.mutateAsync(data)
+        setShowEdit(false)
     }
 
-    const handleDragOver = useCallback((e: React.DragEvent) => {
-        e.preventDefault()
-        setIsDragOver(true)
-    }, [])
+    const onDelete = async () => {
+        await deleteMutation.mutateAsync(workspaceId!)
+        navigate('/workspaces')
+    }
 
-    const handleDragLeave = useCallback((e: React.DragEvent) => {
-        e.preventDefault()
-        setIsDragOver(false)
-    }, [])
+    if (isLoading) return <Loading text="Đang tải..." />
 
-    const handleDrop = useCallback(async (e: React.DragEvent) => {
-        e.preventDefault()
-        setIsDragOver(false)
-        if (e.dataTransfer.files.length > 0) {
-            await handleFiles(e.dataTransfer.files)
-        }
-    }, [workspaceId])
+    if (!workspace) return (
+        <div className="text-center py-20 text-gray-500">
+            Không tìm thấy workspace
+        </div>
+    )
 
-    if (isLoading) return <Loading text="Đang tải file..." />
+    const quickActions = [
+        {
+            icon: FolderOpen,
+            label: 'Quản lý file',
+            desc: 'Upload và xem tài liệu',
+            color: 'bg-blue-50 text-blue-600',
+            onClick: () => navigate(`/workspaces/${workspaceId}/files`),
+        },
+        {
+            icon: Users,
+            label: 'Thành viên',
+            desc: `${workspace.memberCount} thành viên`,
+            color: 'bg-green-50 text-green-600',
+            onClick: () => navigate(`/workspaces/${workspaceId}/members`),
+        },
+        {
+            icon: Activity,
+            label: 'Hoạt động',
+            desc: 'Nhật ký workspace',
+            color: 'bg-purple-50 text-purple-600',
+            onClick: () => navigate(`/workspaces/${workspaceId}/activities`),
+        },
+        {
+            icon: BarChart2,
+            label: 'Thống kê',
+            desc: 'Dashboard workspace',
+            color: 'bg-orange-50 text-orange-600',
+            onClick: () => navigate(`/workspaces/${workspaceId}/dashboard`),
+        },
+    ]
 
     return (
-        <div
-            className="relative"
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            onDrop={handleDrop}
-        >
-            {/* Drag overlay */}
-            {isDragOver && (
-                <div className="absolute inset-0 z-20 rounded-2xl
-                        bg-primary-50 border-2 border-dashed border-primary-400
-                        flex items-center justify-center">
-                    <div className="text-center">
-                        <Upload className="h-12 w-12 text-primary-500 mx-auto mb-2" />
-                        <p className="text-primary-700 font-semibold">
-                            Thả file để upload
-                        </p>
-                    </div>
-                </div>
-            )}
-
+        <div className="max-w-3xl space-y-6">
             {/* Header */}
-            <div className="flex items-start justify-between mb-6">
-                <div>
-                    <h1 className="text-2xl font-bold text-gray-900">
-                        {workspace?.name || 'Files'}
-                    </h1>
-                    <p className="text-sm text-gray-400 mt-1">
-                        {allFiles.length} file
-                    </p>
+            <div className="flex items-start gap-4">
+                <button
+                    onClick={() => navigate('/workspaces')}
+                    className="h-9 w-9 flex items-center justify-center
+                     rounded-xl border border-gray-200 text-gray-500
+                     hover:bg-gray-50 transition-colors mt-0.5"
+                >
+                    <ArrowLeft className="h-4 w-4" />
+                </button>
+
+                <div className="flex-1">
+                    <div className="flex items-start justify-between">
+                        <div>
+                            <h1 className="text-2xl font-bold text-gray-900">
+                                {workspace.name}
+                            </h1>
+                            {workspace.description && (
+                                <p className="text-gray-500 mt-1 text-sm">
+                                    {workspace.description}
+                                </p>
+                            )}
+                        </div>
+                        <RoleBadge role={workspace.myRole} />
+                    </div>
+                </div>
+            </div>
+
+            {/* Quick actions */}
+            <div className="grid grid-cols-2 gap-3">
+                {quickActions.map(({ icon: Icon, label, desc, color, onClick }) => (
+                    <button
+                        key={label}
+                        onClick={onClick}
+                        className="card-hover p-5 flex items-center gap-4 text-left"
+                    >
+                        <div className={cn(
+                            'h-11 w-11 rounded-xl flex items-center justify-center',
+                            'flex-shrink-0',
+                            color
+                        )}>
+                            <Icon className="h-5 w-5" />
+                        </div>
+                        <div>
+                            <p className="font-semibold text-gray-900 text-sm">{label}</p>
+                            <p className="text-xs text-gray-400 mt-0.5">{desc}</p>
+                        </div>
+                    </button>
+                ))}
+            </div>
+
+            {/* Info card */}
+            <div className="card p-6">
+                <div className="flex items-center justify-between mb-5">
+                    <h2 className="section-title">Thông tin workspace</h2>
+                    {isAdmin && (
+                        <button
+                            onClick={() => setShowEdit(true)}
+                            className="flex items-center gap-1.5 text-sm text-primary-600
+                         hover:text-primary-700 font-medium transition-colors"
+                        >
+                            <Edit2 className="h-3.5 w-3.5" />
+                            Chỉnh sửa
+                        </button>
+                    )}
                 </div>
 
-                <div className="flex items-center gap-2">
-                    {/* View toggle */}
-                    <div className="flex border border-gray-200 rounded-xl
-                          overflow-hidden bg-white">
-                        <button
-                            onClick={() => setViewMode('grid')}
-                            className={cn(
-                                'p-2 transition-colors',
-                                viewMode === 'grid'
-                                    ? 'bg-primary-600 text-white'
-                                    : 'text-gray-500 hover:bg-gray-50'
-                            )}
-                        >
-                            <Grid className="h-4 w-4" />
-                        </button>
-                        <button
-                            onClick={() => setViewMode('list')}
-                            className={cn(
-                                'p-2 transition-colors',
-                                viewMode === 'list'
-                                    ? 'bg-primary-600 text-white'
-                                    : 'text-gray-500 hover:bg-gray-50'
-                            )}
-                        >
-                            <List className="h-4 w-4" />
-                        </button>
+                <div className="space-y-4">
+                    {/* Owner */}
+                    <div className="flex items-center gap-3">
+                        <Avatar
+                            name={workspace.owner.fullName}
+                            avatarUrl={workspace.owner.avatarUrl}
+                            size="md"
+                        />
+                        <div>
+                            <p className="text-xs text-gray-400">Chủ sở hữu</p>
+                            <p className="text-sm font-medium text-gray-900">
+                                {workspace.owner.fullName}
+                            </p>
+                            <p className="text-xs text-gray-400">
+                                {workspace.owner.email}
+                            </p>
+                        </div>
                     </div>
 
-                    <Button
-                        variant="primary"
-                        onClick={() => fileInputRef.current?.click()}
-                        isLoading={uploadMutation.isPending}
-                    >
-                        <Upload className="h-4 w-4" />
-                        Upload
-                    </Button>
+                    <div className="divider" />
 
-                    <input
-                        ref={fileInputRef}
-                        type="file"
-                        multiple
-                        className="hidden"
-                        onChange={(e) => {
-                            if (e.target.files) handleFiles(e.target.files)
-                            e.target.value = ''
-                        }}
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <p className="text-xs text-gray-400 mb-1">Thành viên</p>
+                            <p className="text-sm font-semibold text-gray-900">
+                                {workspace.memberCount} người
+                            </p>
+                        </div>
+                        <div>
+                            <p className="text-xs text-gray-400 mb-1">Loại</p>
+                            <p className="text-sm font-semibold text-gray-900">
+                                {workspace.isPersonal ? 'Cá nhân' : 'Nhóm'}
+                            </p>
+                        </div>
+                    </div>
+
+                    {workspace.isPersonal && (
+                        <div className="flex items-center gap-2 text-xs
+                            text-primary-600 bg-primary-50
+                            rounded-xl px-3 py-2">
+                            <span>🔒</span>
+                            Workspace cá nhân — không thể xóa
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* Danger zone — chỉ OWNER */}
+            {isOwner && !workspace.isPersonal && (
+                <div className="card p-6 border-red-100">
+                    <h2 className="section-title text-red-600 mb-1">Vùng nguy hiểm</h2>
+                    <p className="text-sm text-gray-500 mb-4">
+                        Xóa workspace sẽ xóa toàn bộ file, thư mục và thành viên.
+                        Hành động này không thể hoàn tác.
+                    </p>
+                    <Button
+                        variant="danger"
+                        onClick={() => setShowDelete(true)}
+                    >
+                        <Trash2 className="h-4 w-4" />
+                        Xóa workspace
+                    </Button>
+                </div>
+            )}
+
+            {/* Edit modal */}
+            <Modal
+                isOpen={showEdit}
+                onClose={() => { setShowEdit(false); reset() }}
+                title="Chỉnh sửa workspace"
+                footer={
+                    <div className="flex gap-3 justify-end">
+                        <Button
+                            variant="secondary"
+                            onClick={() => { setShowEdit(false); reset() }}
+                        >
+                            Hủy
+                        </Button>
+                        <Button
+                            variant="primary"
+                            onClick={handleSubmit(onEdit)}
+                            isLoading={updateMutation.isPending}
+                        >
+                            Lưu thay đổi
+                        </Button>
+                    </div>
+                }
+            >
+                <div className="space-y-4">
+                    <Input
+                        label="Tên workspace"
+                        error={errors.name?.message}
+                        required
+                        {...register('name')}
                     />
-                </div>
-            </div>
-
-            {/* Search */}
-            <div className="relative mb-5">
-                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2
-                           h-4 w-4 text-gray-400 pointer-events-none" />
-                <input
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    placeholder="Tìm kiếm file..."
-                    className="input pl-10"
-                />
-            </div>
-
-            {/* Content */}
-            {allFiles.length === 0 ? (
-                <UploadDropzone
-                    onFileSelect={handleFiles}
-                    isUploading={uploadMutation.isPending}
-                />
-            ) : filteredFiles.length === 0 ? (
-                <EmptyState
-                    icon={Files}
-                    title="Không tìm thấy file"
-                    description={`Không có file nào khớp với "${search}"`}
-                />
-            ) : viewMode === 'grid' ? (
-                <div className="grid grid-cols-2 sm:grid-cols-3
-                        lg:grid-cols-4 xl:grid-cols-5 gap-3">
-                    {filteredFiles.map((file) => (
-                        <FileCard
-                            key={file.id}
-                            file={file}
-                            onDownload={() => downloadMutation.mutate(file.id)}
-                            onDelete={() => setDeleteTarget(file)}
+                    <div>
+                        <label className="label">Mô tả</label>
+                        <textarea
+                            {...register('description')}
+                            rows={3}
+                            className="input resize-none"
                         />
-                    ))}
+                    </div>
                 </div>
-            ) : (
-                <FileTable
-                    files={filteredFiles}
-                    onDownload={(f) => downloadMutation.mutate(f.id)}
-                    onDelete={(f) => setDeleteTarget(f)}
-                />
-            )}
-
-            {/* Load more */}
-            {hasNextPage && (
-                <div className="text-center mt-6">
-                    <Button
-                        variant="secondary"
-                        onClick={() => fetchNextPage()}
-                        isLoading={isFetchingNextPage}
-                    >
-                        Tải thêm
-                    </Button>
-                </div>
-            )}
+            </Modal>
 
             {/* Delete confirm */}
             <ConfirmDialog
-                isOpen={!!deleteTarget}
-                onClose={() => setDeleteTarget(null)}
-                onConfirm={async () => {
-                    if (!deleteTarget) return
-                    await deleteMutation.mutateAsync(deleteTarget.id)
-                    setDeleteTarget(null)
-                }}
-                title="Xóa file"
-                message={`Xóa "${deleteTarget?.originalName}"? Không thể hoàn tác.`}
-                confirmText="Xóa"
+                isOpen={showDelete}
+                onClose={() => setShowDelete(false)}
+                onConfirm={onDelete}
+                title="Xóa workspace"
+                message={`Xóa workspace "${workspace.name}"? Toàn bộ file và dữ liệu sẽ bị xóa vĩnh viễn.`}
+                confirmText="Xóa vĩnh viễn"
                 isLoading={deleteMutation.isPending}
             />
         </div>

@@ -14,24 +14,18 @@ public class NotificationSocketHandler {
     // (1) Template để gửi message qua WebSocket
     private final SimpMessagingTemplate messagingTemplate;
 
-    // (2) Gửi notification đến 1 user cụ thể
-    public void sendToUser(String userId, NotificationResponse notification) {
+    // (1) Nhận email làm destinationUser
+    // Spring dùng principal.getName() = email để route
+    public void sendToUser(String email, NotificationResponse notification) {
         try {
-            // (3) Gửi đến destination: /user/{userId}/queue/notifications
-            // Chỉ user có userId này mới nhận được
             messagingTemplate.convertAndSendToUser(
-                    userId,                     // user identifier
-                    "/queue/notifications",     // destination suffix
-                    notification                // payload (auto serialize to JSON)
+                    email,                      // (2) phải là email, không phải UUID
+                    "/queue/notifications",
+                    notification
             );
-
-            log.debug("Gửi notification đến user: {}", userId);
-
+            log.debug("Đã push notification đến: {}", email);
         } catch (Exception e) {
-            // (4) Không throw — user có thể offline
-            // Notification đã lưu DB rồi, user online lại sẽ poll
-            log.warn("Không gửi được WebSocket đến user {}: {}",
-                    userId, e.getMessage());
+            log.error("Lỗi push notification đến {}: {}", email, e.getMessage());
         }
     }
 

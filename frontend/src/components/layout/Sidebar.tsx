@@ -118,7 +118,6 @@ export default function Sidebar() {
                         </>
                     )}
                   </NavLink>
-
                   {/* Individual workspaces */}
                   {workspaces.slice(0, 5).map((ws) => {
                     const isActive = location.pathname.startsWith(
@@ -149,6 +148,7 @@ export default function Sidebar() {
                           </div>
                           <span className="truncate">{ws.name}</span>
                         </button>
+
                     )
                   })}
                 </div>

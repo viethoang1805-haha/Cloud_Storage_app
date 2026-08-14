@@ -6,6 +6,7 @@ import {
     ChevronRight,
     ChevronDown,
     Trash2,
+    Loader2,
 } from 'lucide-react'
 import { FolderItem } from '@/types/folder'
 import { cn } from '@/lib/utils'
@@ -27,7 +28,7 @@ export default function FolderSidebar({
                                           onSelectFolder,
                                           onCreateFolder,
                                       }: FolderSidebarProps) {
-    const { data: folders = [] } = useRootFolders(workspaceId)
+    const { data: folders = [], isLoading } = useRootFolders(workspaceId)
     const deleteMutation = useDeleteFolder(workspaceId)
     const [deleteTarget, setDeleteTarget] = useState<FolderItem | null>(null)
     const [expanded, setExpanded] = useState<Set<string>>(new Set())
@@ -35,7 +36,6 @@ export default function FolderSidebar({
     const toggleExpand = (id: string) => {
         setExpanded((prev) => {
             const next = new Set(prev)
-            // eslint-disable-next-line @typescript-eslint/no-unused-expressions
             next.has(id) ? next.delete(id) : next.add(id)
             return next
         })
@@ -60,7 +60,7 @@ export default function FolderSidebar({
                 </button>
             </div>
 
-            {/* Root */}
+            {/* Root — tất cả file */}
             <button
                 onClick={() => onSelectFolder(null)}
                 className={cn(
@@ -75,6 +75,14 @@ export default function FolderSidebar({
                 <span className="truncate">Tất cả file</span>
             </button>
 
+            {/* Loading */}
+            {isLoading && (
+                <div className="flex items-center gap-2 px-3 py-2 text-gray-400">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    <span className="text-xs">Đang tải...</span>
+                </div>
+            )}
+
             {/* Folders tree */}
             <ul className="space-y-0.5">
                 {folders.map((folder) => (
@@ -87,7 +95,7 @@ export default function FolderSidebar({
                         expanded={expanded}
                         onSelect={onSelectFolder}
                         onToggle={toggleExpand}
-                        onDelete={(f) => setDeleteTarget(f)}
+                        onDelete={setDeleteTarget}
                     />
                 ))}
             </ul>
@@ -103,7 +111,7 @@ export default function FolderSidebar({
                     if (selectedFolderId === deleteTarget.id) onSelectFolder(null)
                 }}
                 title="Xóa thư mục"
-                message={`Xóa thư mục "${deleteTarget?.name}" và toàn bộ nội dung bên trong?`}
+                message={`Xóa thư mục "${deleteTarget?.name}" và toàn bộ nội dung?`}
                 confirmText="Xóa"
                 isLoading={deleteMutation.isPending}
             />
@@ -111,7 +119,6 @@ export default function FolderSidebar({
     )
 }
 
-// Component đệ quy hiển thị cây thư mục
 function FolderTreeNode({
                             folder,
                             workspaceId,
@@ -134,25 +141,31 @@ function FolderTreeNode({
     const [showActions, setShowActions] = useState(false)
     const isExpanded = expanded.has(folder.id)
     const isSelected = selectedFolderId === folder.id
+    const hasChildren = folder.childCount > 0
 
-    // (1) Load folder con khi expanded
-    const { data: children = [] } = useQuery({
+    // (1) Chỉ fetch khi expanded VÀ có childCount > 0 VÀ workspaceId hợp lệ
+    const {
+        data: children = [],
+        isLoading: childrenLoading,
+    } = useQuery({
         queryKey: ['folders', workspaceId, folder.id, 'children'],
         queryFn: () => folderApi.getChildren(workspaceId, folder.id),
-        enabled: isExpanded && folder.childCount > 0,
+        // (2) Fix: enabled đúng điều kiện
+        enabled: isExpanded && hasChildren && !!workspaceId && !!folder.id,
+        staleTime: 30 * 1000,
     })
 
     return (
         <li>
             <div
                 className={cn(
-                    'flex items-center gap-1 px-2 py-2 rounded-xl',
-                    'text-sm transition-colors cursor-pointer group',
+                    'flex items-center gap-1 rounded-xl text-sm transition-colors',
+                    'group cursor-pointer',
                     isSelected
                         ? 'bg-primary-50 text-primary-700 font-medium'
                         : 'text-gray-600 hover:bg-gray-50'
                 )}
-                style={{ paddingLeft: `${8 + depth * 12}px` }}
+                style={{ paddingLeft: `${8 + depth * 12}px`, paddingRight: '8px' }}
                 onMouseEnter={() => setShowActions(true)}
                 onMouseLeave={() => setShowActions(false)}
             >
@@ -160,41 +173,58 @@ function FolderTreeNode({
                 <button
                     onClick={(e) => {
                         e.stopPropagation()
-                        if (folder.childCount > 0) onToggle(folder.id)
+                        if (hasChildren) onToggle(folder.id)
                     }}
-                    className="h-4 w-4 flex items-center justify-center
-                     flex-shrink-0 text-gray-400"
+                    className={cn(
+                        'h-7 w-5 flex items-center justify-center flex-shrink-0',
+                        'text-gray-400 transition-colors',
+                        hasChildren ? 'hover:text-gray-600' : 'cursor-default'
+                    )}
                 >
-                    {folder.childCount > 0 ? (
-                        isExpanded
-                            ? <ChevronDown className="h-3.5 w-3.5" />
-                            : <ChevronRight className="h-3.5 w-3.5" />
+                    {hasChildren ? (
+                        childrenLoading ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : isExpanded ? (
+                            <ChevronDown className="h-3.5 w-3.5" />
+                        ) : (
+                            <ChevronRight className="h-3.5 w-3.5" />
+                        )
                     ) : (
-                        <span className="w-3.5 h-3.5 block" />
+                        // (3) Dot để fill space nếu không có children
+                        <span className="h-1 w-1 rounded-full bg-gray-200 block mx-auto" />
                     )}
                 </button>
 
                 {/* Folder name */}
                 <button
                     onClick={() => onSelect(folder.id)}
-                    className="flex items-center gap-2 flex-1 min-w-0 text-left"
+                    className="flex items-center gap-2 flex-1 min-w-0 text-left
+                     py-2"
                 >
                     <FolderIcon className={cn(
                         'h-4 w-4 flex-shrink-0',
-                        isSelected ? 'text-primary-500' : 'text-gray-400'
+                        isSelected ? 'text-primary-500' : 'text-amber-400'
                     )} />
-                    <span className="truncate text-xs">{folder.name}</span>
+                    <span className="truncate text-xs font-medium">
+            {folder.name}
+          </span>
+                    {hasChildren && !isExpanded && (
+                        <span className="text-xs text-gray-300 ml-auto flex-shrink-0">
+              {folder.childCount}
+            </span>
+                    )}
                 </button>
 
-                {/* Actions */}
+                {/* Delete action */}
                 {showActions && (
                     <button
                         onClick={(e) => {
                             e.stopPropagation()
                             onDelete(folder)
                         }}
-                        className="h-5 w-5 flex items-center justify-center
-                       text-gray-300 hover:text-red-500 transition-colors"
+                        className="h-5 w-5 flex items-center justify-center rounded
+                       text-gray-300 hover:text-red-500
+                       hover:bg-red-50 transition-colors flex-shrink-0"
                         title="Xóa thư mục"
                     >
                         <Trash2 className="h-3 w-3" />
@@ -203,21 +233,30 @@ function FolderTreeNode({
             </div>
 
             {/* Children — đệ quy */}
-            {isExpanded && children.length > 0 && (
+            {isExpanded && (
                 <ul className="space-y-0.5">
-                    {children.map((child) => (
-                        <FolderTreeNode
-                            key={child.id}
-                            folder={child}
-                            workspaceId={workspaceId}
-                            depth={depth + 1}
-                            selectedFolderId={selectedFolderId}
-                            expanded={expanded}
-                            onSelect={onSelect}
-                            onToggle={onToggle}
-                            onDelete={onDelete}
-                        />
-                    ))}
+                    {children.length === 0 && !childrenLoading ? (
+                        // (4) Không có folder con nhưng có file — hiển thị gợi ý
+                        <li className="pl-8 py-1">
+              <span className="text-xs text-gray-300 italic">
+                Trống
+              </span>
+                        </li>
+                    ) : (
+                        children.map((child) => (
+                            <FolderTreeNode
+                                key={child.id}
+                                folder={child}
+                                workspaceId={workspaceId}
+                                depth={depth + 1}
+                                selectedFolderId={selectedFolderId}
+                                expanded={expanded}
+                                onSelect={onSelect}
+                                onToggle={onToggle}
+                                onDelete={onDelete}
+                            />
+                        ))
+                    )}
                 </ul>
             )}
         </li>

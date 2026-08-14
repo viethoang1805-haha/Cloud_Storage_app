@@ -273,8 +273,8 @@ public class DashboardServiceImpl implements DashboardService {
         // (14) Số liệu toàn hệ thống
         long totalUsers = userRepository.count();
         long totalWorkspaces = workspaceRepository.count();
-        long totalFiles = fileRepository
-                .countFilesCreatedAfter(LocalDateTime.MIN);
+        long totalFiles = fileRepository.countAllNotDeleted();
+
         long totalFolders = folderRepository.count();
 
         // (15) Tổng storage — sum tất cả user

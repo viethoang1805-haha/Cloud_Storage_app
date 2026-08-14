@@ -7,6 +7,8 @@ export const folderKeys = {
     all: ['folders'] as const,
     workspace: (wId: string) => [...folderKeys.all, wId] as const,
     root: (wId: string) => [...folderKeys.workspace(wId), 'root'] as const,
+    children: (wId: string, fId: string) =>
+        [...folderKeys.workspace(wId), fId, 'children'] as const,
     detail: (wId: string, fId: string) =>
         [...folderKeys.workspace(wId), fId] as const,
 }
@@ -16,6 +18,17 @@ export function useRootFolders(workspaceId: string) {
         queryKey: folderKeys.root(workspaceId),
         queryFn: () => folderApi.getRootFolders(workspaceId),
         enabled: !!workspaceId,
+        staleTime: 30 * 1000,
+    })
+}
+
+// (1) Hook riêng cho folder children
+export function useFolderChildren(workspaceId: string, folderId: string, enabled: boolean) {
+    return useQuery({
+        queryKey: folderKeys.children(workspaceId, folderId),
+        queryFn: () => folderApi.getChildren(workspaceId, folderId),
+        enabled: enabled && !!workspaceId && !!folderId,
+        staleTime: 30 * 1000,
     })
 }
 
@@ -24,10 +37,17 @@ export function useCreateFolder(workspaceId: string) {
     return useMutation({
         mutationFn: (data: FolderCreateRequest) =>
             folderApi.create(workspaceId, data),
-        onSuccess: () => {
-            queryClient.invalidateQueries({
-                queryKey: folderKeys.workspace(workspaceId),
-            })
+        onSuccess: (newFolder) => {
+            // (2) Invalidate đúng query key
+            if (newFolder.parent) {
+                queryClient.invalidateQueries({
+                    queryKey: folderKeys.children(workspaceId, newFolder.parent.id),
+                })
+            } else {
+                queryClient.invalidateQueries({
+                    queryKey: folderKeys.root(workspaceId),
+                })
+            }
             toast.success('Tạo thư mục thành công!')
         },
     })

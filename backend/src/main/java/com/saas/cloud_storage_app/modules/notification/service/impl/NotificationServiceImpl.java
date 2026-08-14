@@ -138,8 +138,9 @@ public class NotificationServiceImpl implements NotificationService {
                                 .build()
                 );
                 socketHandler.sendToUser(
-                        recipient.getId().toString(),
-                        notificationMapper.toResponse(saved));
+                        recipient.getEmail(),    // email
+                        notificationMapper.toResponse(saved)
+                );
             } catch (Exception e) {
                 log.error("Lỗi gửi notification cho user {}: {}",
                         recipient.getId(), e.getMessage());
@@ -171,8 +172,9 @@ public class NotificationServiceImpl implements NotificationService {
             );
 
             socketHandler.sendToUser(
-                    event.getInvitee().getId().toString(),
-                    notificationMapper.toResponse(saved));
+                    event.getInvitee().getEmail(),  // email
+                    notificationMapper.toResponse(saved)
+            );
 
             log.info("Gửi notification MEMBER_INVITED đến: {}",
                     event.getInvitee().getEmail());
@@ -205,9 +207,9 @@ public class NotificationServiceImpl implements NotificationService {
             );
 
             socketHandler.sendToUser(
-                    event.getSharedWith().getId().toString(),
-                    notificationMapper.toResponse(saved));
-
+                    event.getSharedWith().getEmail(),  // email
+                    notificationMapper.toResponse(saved)
+            );
             log.info("Gửi notification FILE_SHARED đến: {}",
                     event.getSharedWith().getEmail());
         } catch (Exception e) {

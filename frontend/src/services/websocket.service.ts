@@ -1,3 +1,5 @@
+// src/services/websocket.service.ts
+
 import { Client, IMessage } from '@stomp/stompjs'
 import SockJS from 'sockjs-client'
 import { tokenService } from './token.service'
@@ -8,33 +10,34 @@ type NotificationHandler = (notification: Notification) => void
 class WebSocketService {
     private client: Client | null = null
     private handlers: NotificationHandler[] = []
+    private currentEmail: string | null = null
 
-    connect(userId: string): void {
-        // Disconnect cũ nếu có
-        if (this.client?.active) {
+    // (1) Nhận email thay vì userId
+    connect(email: string): void {
+        if (this.currentEmail === email && this.client?.active) return
+
+        if (this.client) {
             this.client.deactivate()
+            this.client = null
         }
 
         const token = tokenService.getAccessToken()
-        if (!token) return
+        if (!token || !email) return
+
+        this.currentEmail = email
 
         this.client = new Client({
-            // (1) Dùng factory function để SockJS tạo mới mỗi lần reconnect
-            webSocketFactory: () => {
-                return new SockJS('http://localhost:8080/ws')
-            },
-
-            // (2) Token trong STOMP CONNECT header
+            webSocketFactory: () => new SockJS('http://localhost:8080/ws'),
             connectHeaders: {
                 Authorization: `Bearer ${token}`,
             },
 
-            onConnect: (frame) => {
-                console.log('✅ WebSocket connected', frame)
+            onConnect: () => {
+                console.log('✅ WebSocket connected')
 
-                // (3) Subscribe channel riêng của user
+                // (2) Subscribe bằng email — khớp với Spring principal
                 this.client?.subscribe(
-                    `/user/${userId}/queue/notifications`,
+                    `/user/${email}/queue/notifications`,
                     (message: IMessage) => {
                         try {
                             const notification: Notification = JSON.parse(message.body)
@@ -48,13 +51,13 @@ class WebSocketService {
 
             onDisconnect: () => {
                 console.log('WebSocket disconnected')
+                this.currentEmail = null
             },
 
             onStompError: (frame) => {
                 console.error('STOMP error:', frame.headers?.message)
             },
 
-            // (4) Không reconnect tự động nếu bị 401
             reconnectDelay: 0,
         })
 
@@ -62,8 +65,11 @@ class WebSocketService {
     }
 
     disconnect(): void {
-        this.client?.deactivate()
-        this.client = null
+        if (this.client) {
+            this.client.deactivate()
+            this.client = null
+        }
+        this.currentEmail = null
         this.handlers = []
     }
 

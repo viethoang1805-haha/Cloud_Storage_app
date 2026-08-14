@@ -13,18 +13,11 @@ export const shareKeys = {
 export function useShareLink(workspaceId: string, fileId: string) {
     return useQuery({
         queryKey: shareKeys.link(workspaceId, fileId),
-        queryFn: async () => {
-            try {
-                return await shareApi.getLink(workspaceId, fileId)
-            } catch (err: any) {
-                // 404 = chưa có link → trả về null thay vì throw
-                if (err?.response?.status === 404) return null
-                throw err
-            }
-        },
+        // (1) getLink đã xử lý 404 → trả null, không throw
+        queryFn: () => shareApi.getLink(workspaceId, fileId),
         enabled: !!workspaceId && !!fileId,
         retry: false,
-        staleTime: 0,  // (1) Luôn refetch khi invalidate
+        staleTime: 0,
     })
 }
 
@@ -34,7 +27,7 @@ export function useCreateShareLink(workspaceId: string, fileId: string) {
         mutationFn: (data: CreateShareLinkRequest = {}) =>
             shareApi.createLink(workspaceId, fileId, data),
         onSuccess: (newLink) => {
-            // (2) Set data trực tiếp vào cache — không cần refetch
+            // (2) Set trực tiếp vào cache
             queryClient.setQueryData(
                 shareKeys.link(workspaceId, fileId),
                 newLink
@@ -42,9 +35,8 @@ export function useCreateShareLink(workspaceId: string, fileId: string) {
             toast.success('Tạo link chia sẻ thành công!')
         },
         onError: (err: any) => {
-            toast.error(
-                err?.response?.data?.message || 'Tạo link thất bại'
-            )
+            const msg = err?.response?.data?.message || 'Tạo link thất bại'
+            toast.error(msg)
         },
     })
 }
@@ -54,7 +46,6 @@ export function useDeactivateShareLink(workspaceId: string, fileId: string) {
     return useMutation({
         mutationFn: () => shareApi.deactivateLink(workspaceId, fileId),
         onSuccess: () => {
-            // (3) Set null → UI hiển thị trạng thái chưa có link
             queryClient.setQueryData(
                 shareKeys.link(workspaceId, fileId),
                 null
@@ -69,6 +60,7 @@ export function useFilePermissions(workspaceId: string, fileId: string) {
         queryKey: shareKeys.permissions(workspaceId, fileId),
         queryFn: () => shareApi.getPermissions(workspaceId, fileId),
         enabled: !!workspaceId && !!fileId,
+        retry: false,
     })
 }
 

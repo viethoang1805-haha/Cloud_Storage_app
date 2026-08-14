@@ -6,6 +6,7 @@ import com.saas.cloud_storage_app.common.exception.ErrorCode;
 import com.saas.cloud_storage_app.modules.file.entity.FileEntity;
 import com.saas.cloud_storage_app.modules.file.service.FileService;
 import com.saas.cloud_storage_app.modules.file.service.MinioStorageService;
+import com.saas.cloud_storage_app.modules.notification.event.FileSharedEvent;
 import com.saas.cloud_storage_app.modules.share.dto.request.*;
 import com.saas.cloud_storage_app.modules.share.dto.response.*;
 import com.saas.cloud_storage_app.modules.share.entity.FilePermission;
@@ -19,6 +20,7 @@ import com.saas.cloud_storage_app.modules.user.service.UserService;
 import com.saas.cloud_storage_app.modules.workspace.service.WorkspaceService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -41,7 +43,7 @@ public class ShareServiceImpl implements ShareService {
     private final UserService userService;
     private final ShareMapper shareMapper;
     private final PasswordEncoder passwordEncoder;
-
+    private final ApplicationEventPublisher eventPublisher;
     // (1) SecureRandom — cryptographically secure random
     // Không dùng Random thông thường vì có thể đoán được
     private final SecureRandom secureRandom = new SecureRandom();
@@ -226,10 +228,8 @@ public class ShareServiceImpl implements ShareService {
             throw new AppException(ErrorCode.FILE_NOT_FOUND);
         }
 
-        // (13) Tìm user được chia sẻ
         User targetUser = userService.getUserByEmail(request.getEmail());
 
-        // (14) Không tự chia sẻ với chính mình
         if (targetUser.getId().equals(sharer.getId())) {
             throw new AppException(
                     ErrorCode.VALIDATION_FAILED,
@@ -237,38 +237,57 @@ public class ShareServiceImpl implements ShareService {
             );
         }
 
-        // (15) Nếu đã có permission → UPDATE thay vì INSERT
-        if (filePermissionRepository.existsByFileIdAndUserId(fileId, targetUser.getId())) {
+        FilePermission permission;
+
+        if (filePermissionRepository.existsByFileIdAndUserId(
+                fileId, targetUser.getId())) {
+
+            // Update permission
             filePermissionRepository.updatePermission(
                     fileId, targetUser.getId(), request.getPermission()
             );
 
-            FilePermission updated = filePermissionRepository
+            permission = filePermissionRepository
                     .findByFileIdAndUserId(fileId, targetUser.getId())
                     .orElseThrow();
 
             log.info("Cập nhật permission {} cho user {} với file {}",
                     request.getPermission(), request.getEmail(), fileId);
 
-            return shareMapper.toPermissionResponse(updated);
+        } else {
+
+            // Tạo mới
+            permission = FilePermission.builder()
+                    .file(file)
+                    .user(targetUser)
+                    .sharedBy(sharer)
+                    .permission(request.getPermission())
+                    .expiresAt(request.getExpiresAt())
+                    .build();
+
+            permission = filePermissionRepository.save(permission);
+
+            log.info("Chia sẻ file '{}' với {} bởi: {}",
+                    file.getOriginalName(), request.getEmail(), email);
         }
 
-        // (16) Tạo permission mới
-        FilePermission permission = FilePermission.builder()
-                .file(file)
-                .user(targetUser)
-                .sharedBy(sharer)
-                .permission(request.getPermission())
-                .expiresAt(request.getExpiresAt())
-                .build();
+        // (1) Publish event SAU CẢ 2 NHÁNH — cả update lẫn create đều gửi notification
+        try {
+            eventPublisher.publishEvent(
+                    new FileSharedEvent(
+                            this,
+                            file,
+                            targetUser,     // người nhận
+                            sharer,         // người chia sẻ
+                            request.getPermission()
+                    )
+            );
+        } catch (Exception e) {
+            // (2) Không để lỗi notification break transaction chính
+            log.error("Lỗi publish FileSharedEvent: {}", e.getMessage());
+        }
 
-        FilePermission saved = filePermissionRepository.save(permission);
-
-        log.info("Chia sẻ file '{}' với {} quyền {} bởi: {}",
-                file.getOriginalName(), request.getEmail(),
-                request.getPermission(), email);
-
-        return shareMapper.toPermissionResponse(saved);
+        return shareMapper.toPermissionResponse(permission);
     }
 
     // =============================================
@@ -323,6 +342,7 @@ public class ShareServiceImpl implements ShareService {
         return shareMapper.toPermissionResponse(updated);
     }
 
+
     // =============================================
     // THU HỒI PERMISSION
     // =============================================
@@ -368,4 +388,6 @@ public class ShareServiceImpl implements ShareService {
                 .withoutPadding()
                 .encodeToString(randomBytes);
     }
+
+
 }

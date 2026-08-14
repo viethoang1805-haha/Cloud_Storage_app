@@ -8,7 +8,23 @@ import {
 } from '@/types/share'
 
 export const shareApi = {
-    // Share Link
+
+    // (1) getLink trả về null nếu 404, không throw
+    getLink: async (
+        workspaceId: string,
+        fileId: string
+    ): Promise<ShareLink | null> => {
+        try {
+            const res = await axiosInstance.get<ApiResponse<ShareLink>>(
+                `/workspaces/${workspaceId}/files/${fileId}/share/link`
+            )
+            return res.data.data
+        } catch (err: any) {
+            if (err?.response?.status === 404) return null
+            throw err
+        }
+    },
+
     createLink: async (
         workspaceId: string,
         fileId: string,
@@ -21,20 +37,15 @@ export const shareApi = {
         return res.data.data
     },
 
-    getLink: async (workspaceId: string, fileId: string): Promise<ShareLink> => {
-        const res = await axiosInstance.get<ApiResponse<ShareLink>>(
-            `/workspaces/${workspaceId}/files/${fileId}/share/link`
-        )
-        return res.data.data
-    },
-
-    deactivateLink: async (workspaceId: string, fileId: string): Promise<void> => {
+    deactivateLink: async (
+        workspaceId: string,
+        fileId: string
+    ): Promise<void> => {
         await axiosInstance.delete(
             `/workspaces/${workspaceId}/files/${fileId}/share/link`
         )
     },
 
-    // File Permission
     shareWithUser: async (
         workspaceId: string,
         fileId: string,

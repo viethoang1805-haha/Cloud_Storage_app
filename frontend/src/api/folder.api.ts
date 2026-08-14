@@ -1,6 +1,11 @@
 import axiosInstance from './axios'
 import { ApiResponse } from '@/types/common'
-import { FolderItem, FolderTree, FolderCreateRequest, FolderRenameRequest } from '@/types/folder'
+import {
+    FolderItem,
+    FolderTree,
+    FolderCreateRequest,
+    FolderRenameRequest,
+} from '@/types/folder'
 
 export const folderApi = {
     getRootFolders: async (workspaceId: string): Promise<FolderItem[]> => {
@@ -10,14 +15,31 @@ export const folderApi = {
         return res.data.data
     },
 
-    getById: async (workspaceId: string, folderId: string): Promise<FolderItem> => {
+    // (1) Đúng endpoint /{folderId}/children
+    getChildren: async (
+        workspaceId: string,
+        parentId: string
+    ): Promise<FolderItem[]> => {
+        const res = await axiosInstance.get<ApiResponse<FolderItem[]>>(
+            `/workspaces/${workspaceId}/folders/${parentId}/children`
+        )
+        return res.data.data
+    },
+
+    getById: async (
+        workspaceId: string,
+        folderId: string
+    ): Promise<FolderItem> => {
         const res = await axiosInstance.get<ApiResponse<FolderItem>>(
             `/workspaces/${workspaceId}/folders/${folderId}`
         )
         return res.data.data
     },
 
-    getTree: async (workspaceId: string, folderId: string): Promise<FolderTree> => {
+    getTree: async (
+        workspaceId: string,
+        folderId: string
+    ): Promise<FolderTree> => {
         const res = await axiosInstance.get<ApiResponse<FolderTree>>(
             `/workspaces/${workspaceId}/folders/${folderId}/tree`
         )
@@ -64,13 +86,4 @@ export const folderApi = {
             `/workspaces/${workspaceId}/folders/${folderId}`
         )
     },
-    // Thêm method này vào folderApi object:
-    getChildren: async (workspaceId: string, parentId: string): Promise<FolderItem[]> => {
-        const res = await axiosInstance.get<ApiResponse<FolderItem[]>>(
-            `/workspaces/${workspaceId}/folders`,
-            { params: { parentId } }
-        )
-        return res.data.data
-    },
-
 }

@@ -75,6 +75,9 @@ public interface FileRepository extends JpaRepository<FileEntity, UUID> {
             UUID fileId, UUID workspaceId
     );
 
+    // (1) Đếm tất cả file chưa xóa
+    @Query("SELECT COUNT(f) FROM FileEntity f WHERE f.isDeleted = false")
+    long countAllNotDeleted();
     // (1) Đếm tổng file của user trong tất cả workspace
     @Query("""
     SELECT COUNT(f) FROM FileEntity f

@@ -21,4 +21,5 @@ public interface FolderService {
     List<FolderResponse> getChildFolders(String email, UUID workspaceId, UUID parentId);
     // Internal
     Folder findFolderById(UUID folderId);
+
 }
